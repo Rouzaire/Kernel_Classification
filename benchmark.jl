@@ -42,7 +42,34 @@ using SpecialFunctions,LinearAlgebra,Distributions,PyCall,Dates,JLD,Distributed
 include("function_definitions.jl")
 SV = pyimport("sklearn.svm")
 
-PP = [10,20,30,50,100,200,300,500]
+PP = [10,20,30,50,100,200,300,500] ; Ptest = 1000
 Δ = 0.0
-d = 1
-A = Run(PP,Δ,d)
+d = 10
+misclassification_error_matrix = zeros(length(PP))
+# coeff_SV = []
+PP = 10000 ; Ptest = 1
+for i in eachindex(PP)
+    Ptrain = PP[i]
+    X             = generate_X(Ptrain,Ptest,d,Δ)
+    Y             = generate_Y(X,Δ)
+    Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
+    Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
+
+    clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
+    GramTrain = Laplace_Kernel(Xtrain,Xtrain)
+    clf.fit(GramTrain, Ytrain)
+    if i == length(PP)
+        append!(coeff_SV,clf.dual_coef_)
+        # println("#dual coeff min : ",minimum(abs.(clf.dual_coef_)))
+        # # display(histogram(log10.(abs.(clf.dual_coef_')),yaxis=(:log10)))
+        # display(histogram(abs.(clf.dual_coef_'),axis=(:log10)))
+        # println("#alpha bar : ",mean(abs.(clf.dual_coef_)))
+    end
+    GramTest = Laplace_Kernel(Xtrain,Xtest)
+
+    misclassification_error_matrix[i] = testerr(clf.predict(GramTest),Ytest)
+end # Ptrain
+println(length(coeff_SV))
+
+
+using Plots ; pyplot()

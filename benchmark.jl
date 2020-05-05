@@ -33,13 +33,16 @@ println("𝝐 = ",misclassification_rate(Ypred, Ytest))
 G = Gram(Xtrain,1/2)
 SVC(kernel="RadialBasis")
 
-## pycall
-using PyCall
-skl = pyimport("sklearn")
-X = [[0, 0], [1, 1]]
-y = [0, 1]
-clf = skl.svm.SVC(C=1E10,kernel="precomputed")
-# clf.cache_size = 200
-clf.fit(X, y)
-clf.predict([[2., 2.]])
-clf.support_vectors_
+##
+cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
+using Pkg; Pkg.activate("."); Pkg.instantiate();
+cd("D:\\Documents\\Ecole\\EPFL\\Internship_2019_ML\\Kernel Classification SVM")
+
+using SpecialFunctions,LinearAlgebra,Distributions,PyCall,Dates,JLD,Distributed
+include("function_definitions.jl")
+SV = pyimport("sklearn.svm")
+
+PP = [10,20,30,50,100,200,300,500]
+Δ = 0.0
+d = 1
+A = Run(PP,Δ,d)

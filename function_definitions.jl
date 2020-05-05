@@ -88,22 +88,26 @@ end
     ## 3D Matrix to store data // dim 1 : PP //  dim 2 : Δ // dim 3 : Realisations
     misclassification_error_matrix  = NaN*zeros(length(PP),length(Δ),M)
 
-    Ptest = Int(1E4)
     for i in eachindex(PP)
-        Ptrain = PP[i] ; N = Ptrain + Ptest
+        Ptrain = PP[i]
 
         for j in eachindex(Δ)
             Δ0 = Δ[j]
+            if Δ0 == 0 low = 1E3 ; high = 5E4
+            else       low = 1E3 ; high = 1E5
+            end
+            Ptest = Int(min(high,max(Ptrain^2,low))) # enforce low ≤ Ptest ≤ high
+            N = Ptrain + Ptest
 
+            println("SVM for P = $Ptrain , Ptest = 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
-                println("SVM for P = $Ptrain , Δ = $Δ0 , d = $d , Realisation #$m . Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now())))
 
                 X             = generate_X(Ptrain,Ptest,d,Δ0)
                 Y             = generate_Y(X,Δ0)
                 Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
                 Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
 
-                clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000)
+                clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
                 GramTrain = Laplace_Kernel(Xtrain,Xtrain)
                 clf.fit(GramTrain, Ytrain)
                 GramTest = Laplace_Kernel(Xtrain,Xtest)

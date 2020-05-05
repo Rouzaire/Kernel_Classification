@@ -47,7 +47,7 @@ PP = [10,20,30,50,100,200,300,500] ; Ptest = 1000
 d = 10
 misclassification_error_matrix = zeros(length(PP))
 # coeff_SV = []
-PP = 10000 ; Ptest = 1
+PP = 5000 ; Ptest = 1
 for i in eachindex(PP)
     Ptrain = PP[i]
     X             = generate_X(Ptrain,Ptest,d,Δ)
@@ -70,6 +70,9 @@ for i in eachindex(PP)
     misclassification_error_matrix[i] = testerr(clf.predict(GramTest),Ytest)
 end # Ptrain
 println(length(coeff_SV))
+plot(box=true,xlabel="log10(SV coefficients)",ylabel="Count")
+histogram!(log10.(abs.(coeff_SV)),yaxis=(:log10),label="")
+savefig("Figures\\CoeffSV.pdf")
 
 
 using Plots ; pyplot()

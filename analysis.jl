@@ -35,6 +35,3 @@ for j in 1:length(dimensions)
     plot!(PP,10^j * coeff[j]*PP .^ (-β[j]),line=:dash,axis=:log,color=j,label="")
 end
 savefig("Figures\\test_error_gap.pdf")
-
-
-zrg

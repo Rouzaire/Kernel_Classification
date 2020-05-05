@@ -17,21 +17,21 @@ error_std  = std(misclassification_error_matrix,dims=3)
 
 ξ = 1 # 1 = Laplace # 2 = Gaussian/RBF
 β = (dimensions .- 1 .+ ξ)./(3dimensions .- 3 .+ ξ)
-factor = 1
 ## Without margin
 coeff = [0.5,0.4,0.3,0.5]
-plot(box=true,yticks=nothing,legend=:topleft,xlabel="P",ylabel="Test Error",title="No Gap")
+plot(box=true,yticks=nothing,legend=:topleft,xlabel="P",ylabel="Test Error avg. on $M realisations",title="No Gap")
 for j in 1:length(dimensions)
-    plot!(PP,10^j * error_avg[:,1,1,j],ribbon=factor*error_std[:,1,1,j],axis=:log,color=j,label="d = $(dimensions[j]) , Slope $(round(β[j],digits=2))")
+    plot!(PP,10^j * error_avg[:,1,1,j],ribbon=10^j *error_std[:,1,1,j],axis=:log,color=j,label="d = $(dimensions[j]) , Slope $(round(β[j],digits=2))")
     plot!(PP,10^j * coeff[j]*PP .^ (-β[j]),line=:dash,axis=:log,color=j,label="")
 end
 savefig("Figures\\test_error_no_gap.pdf")
 
 ## With margin = Δ[2]
+factor = 0.5
 coeff = [0.5,0.4,0.3,0.5]
-plot(box=true,yticks=nothing,legend=:topleft,xlabel="P",ylabel="Test Error",title="Gap Δ0 = $(Δ[2])")
+plot(box=true,yticks=nothing,legend=:topleft,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Gap Δ0 = $(Δ[2])")
 for j in 1:length(dimensions)
-    plot!(PP,10^j * error_avg[:,2,1,j],ribbon=factor*error_std[:,2,1,j],axis=:log,color=j,label="d = $(dimensions[j]) , Slope $(round(β[j],digits=2))")
+    plot!(PP,10^j * error_avg[:,2,1,j],ribbon=10^j * factor*error_std[:,2,1,j],axis=:log,color=j,label="d = $(dimensions[j]) , Slope $(round(β[j],digits=2))")
     plot!(PP,10^j * coeff[j]*PP .^ (-β[j]),line=:dash,axis=:log,color=j,label="")
 end
 savefig("Figures\\test_error_gap.pdf")

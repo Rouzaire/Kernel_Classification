@@ -30,7 +30,7 @@ end
     labels = zeros(length(X))
     for i in eachindex(X)
         if X[i][1] ≥ Δ0/2 labels[i] = + 1
-        else labels[i] = - 1
+        else              labels[i] = - 1
         end
     end
     return labels

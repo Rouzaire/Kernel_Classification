@@ -31,7 +31,7 @@ factor = 0.5
 coeff = [0.5,0.4,0.3,0.5]
 plot(box=true,yticks=nothing,legend=:topleft,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Gap Δ0 = $(Δ[2])")
 for j in 1:length(dimensions)
-    plot!(PP,10^j * error_avg[:,2,1,j],ribbon=10^j * factor*error_std[:,2,1,j],axis=:log,color=j,label="d = $(dimensions[j]) , Slope $(round(β[j],digits=2))")
-    plot!(PP,10^j * coeff[j]*PP .^ (-β[j]),line=:dash,axis=:log,color=j,label="")
+    plot!(PP,10^j * error_avg[:,2,1,j],ribbon=10^j * factor*error_std[:,2,1,j],axis=:log,color=j,label="d = $(dimensions[j])")
+    plot!([10,150],10^j * coeff[j]*[10,150] .^ (-β[j]),line=:dash,axis=:log,color=j,label="")
 end
 savefig("Figures\\test_error_gap.pdf")

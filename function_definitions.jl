@@ -84,7 +84,7 @@ end
     return K' ## the adjoint is necessary to match the desired format of sklearn
 end
 
-@everywhere function Run(PP,Δ,d,M=1)
+@everywhere function Run_fixed_dimension(PP,Δ,d,M=1) ## d is a integer passed in argument and the scan is over M and the vectors PP, Δ0
     ## 3D Matrix to store data // dim 1 : PP //  dim 2 : Δ // dim 3 : Realisations
     misclassification_error_matrix  = NaN*zeros(length(PP),length(Δ),M)
 
@@ -118,5 +118,51 @@ end
     end # Ptrain
 
     ## Save Data for later analysis
-    JLD.save("Data\\"*string(d)*"D_"*string(Dates.day(now()))*".jld", "error", misclassification_error_matrix, "PP", PP, "Δ", Δ, "d", d, "M", M)
+    str = "D_"*string(d)*"_"*string(Dates.day(now()))
+    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix, "PP", PP, "Δ", Δ0, "d", dim, "M", M)
+end
+
+@everywhere function Run_fixed_delta(PP,Δ0,dim,M=1) ## Δ0 is a scalar passed in argument and the scan is over M and the vectors PP, dim
+    ## 3D Matrix to store data // dim 1 : PP //  dim 2 : dimensions // dim 3 : Realisations
+    misclassification_error_matrix  = NaN*zeros(length(PP),length(dim),M)
+
+    for i in eachindex(PP)
+        Ptrain = PP[i]
+
+        for j in eachindex(dim)
+            d = dim[j]
+            if Δ0 == 0 low = 1E3 ; high = 5E4
+            else       low = 1E3 ; high = 1E5
+            end
+            Ptest = Int(min(high,max(Ptrain^2,low))) # enforce low ≤ Ptest ≤ high
+            N = Ptrain + Ptest
+
+            println("SVM for P = $Ptrain , Ptest = 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
+            for m in 1:M
+
+                X             = generate_X(Ptrain,Ptest,d,Δ0)
+                Y             = generate_Y(X,Δ0)
+                Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
+                Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
+
+                clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
+                GramTrain = Laplace_Kernel(Xtrain,Xtrain)
+                clf.fit(GramTrain, Ytrain)
+                GramTest = Laplace_Kernel(Xtrain,Xtest)
+
+                misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)
+            end # Realisations
+        end # Δ0
+    end # Ptrain
+
+    ## Save Data for later analysis
+    str = "Δ_"*string(Δ0)*"_"*string(Dates.day(now()))
+    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix, "PP", PP, "Δ", Δ0, "d", dim, "M", M)
+end
+
+@everywhere function Run(parallelized_over,args...)
+    @assert parallelized_over in ["d","Δ"] println("Choose the function name among \"PP\",\"d\",\"Δ\".")
+    if     parallelized_over == "d" pmap(Run_fixed_dimension,args...)
+    elseif parallelized_over == "Δ" pmap(Run_fixed_delta,args...)
+    end
 end

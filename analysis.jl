@@ -4,7 +4,7 @@ pyplot()
 include("function_definitions.jl")
 
 ##
-dayy = "11" ; param = load("Data\\parameters_"*dayy*".jld")
+dayy = "12" ; param = load("Data\\parameters_"*dayy*".jld")
 PP   = param["PP"] ; M = param["M"]
 Δ = param["Δ"]
 dimensions = param["dimensions"]
@@ -16,7 +16,6 @@ misclassification_error_matrix  = zeros(length(PP),length(Δ),length(dimensions)
 if parallelized_over == "Δ"
     for i in eachindex(Δ)
         str = "Δ_"*string(Δ[i])*"_"*dayy
-        println(size(load("Data\\"*str*".jld")["error"]))
         misclassification_error_matrix[:,i,:,:] = load("Data\\"*str*".jld")["error"]
         # misclassification_error_matrix[:,:,:,i] = load("Data\\"*string(dimensions[i])*"D_"*dayy*".jld")["error"]
     end
@@ -60,4 +59,5 @@ for j in eachindex(dimensions)
         plot!(PP,error_avg[:,i,j,1]/error_avg[1,i,j,1],ribbon=error_std[:,i,j,1],axis=:log,color=i,label="Δ = $(Δ[i])")
     end
 end
-savefig("Figures\\departure.pdf")
+xlabel!("P")
+# savefig("Figures\\departure.pdf")

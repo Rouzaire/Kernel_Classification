@@ -73,6 +73,3 @@ println(length(coeff_SV))
 plot(box=true,xlabel="log10(SV coefficients)",ylabel="Count")
 histogram!(log10.(abs.(coeff_SV)),yaxis=(:log10),label="")
 savefig("Figures\\CoeffSV.pdf")
-
-
-using Plots ; pyplot()

@@ -119,7 +119,7 @@ end
 
     ## Save Data for later analysis
     str = "D_"*string(d)*"_"*string(Dates.day(now()))
-    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix, "PP", PP, "Δ", Δ0, "d", dim, "M", M)
+    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix, "PP", PP, "Δ", Δ, "d", d, "M", M)
 end
 
 @everywhere function Run_fixed_delta(PP,Δ0,dim,M=1) ## Δ0 is a scalar passed in argument and the scan is over M and the vectors PP, dim
@@ -131,11 +131,13 @@ end
 
         for j in eachindex(dim)
             d = dim[j]
-            if Δ0 == 0 low = 1E3 ; high = 5E4
-            else       low = 1E3 ; high = 1E5
+            if Δ0 == 0 low = 1E3 ; high = 5E4 ; pow = 1
+            else       low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
             end
-            Ptest = Int(min(high,max(Ptrain^2,low))) # enforce low ≤ Ptest ≤ high
+            Ptest = Int(round((min(high,max(10*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
             N = Ptrain + Ptest
+
+
 
             println("SVM for P = $Ptrain , Ptest = 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M

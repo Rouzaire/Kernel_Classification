@@ -112,14 +112,29 @@ end
                 clf.fit(GramTrain, Ytrain)
                 GramTest = Laplace_Kernel(Xtrain,Xtest)
 
-                misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)
+                # Test Error
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)
+                # α
+                    alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
+                    alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
+                # r_c
+                    sv = X[clf.support_ .+ 1]
+                    svy = Bool.((generate_Y(sv) .+ 1)/2)
+                    sv_plus = sv[svy]
+                    sv_minus = sv[.!svy]
+                    rc_plus  = [sort([norm(sv_plus[i]-sv_plus[j]) for j in eachindex(sv_plus)])[2] for i in eachindex(sv_plus)]
+                    rc_minus = [sort([norm(sv_minus[i]-sv_minus[j]) for j in eachindex(sv_minus)])[2] for i in eachindex(sv_minus)]
+                    rc = vcat(rc_plus,rc_minus)
+                    rc_avg[i,j,m] = testerr(clf.predict(GramTest),Ytest)
+                    rc_mean_matrix[i,j,m] = mean(rc)
+                    rc_std_matrix[i,j,m] = std(rc)
             end # Realisations
         end # Δ0
     end # Ptrain
 
     ## Save Data for later analysis
     str = "D_"*string(d)*"_"*string(Dates.day(now()))
-    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix, "PP", PP, "Δ", Δ, "d", d, "M", M)
+    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix,"alpha_mean_matrix",alpha_mean_matrix,"alpha_std_matrix",alpha_std_matrix,"rc_mean_matrix",rc_mean_matrix,"rc_std_matrix",rc_std_matrix, "PP", PP, "Δ", Δ, "d", d, "M", M)
 end
 
 @everywhere function Run_fixed_delta(PP,Δ0,dim,M=1) ## Δ0 is a scalar passed in argument and the scan is over M and the vectors PP, dim
@@ -152,14 +167,28 @@ end
                 clf.fit(GramTrain, Ytrain)
                 GramTest = Laplace_Kernel(Xtrain,Xtest)
 
-                misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)
-            end # Realisations
+                # Test Error
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)
+                # α
+                    alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
+                    alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
+                # r_c
+                    sv = X[clf.support_ .+ 1]
+                    svy = Bool.((generate_Y(sv) .+ 1)/2)
+                    sv_plus = sv[svy]
+                    sv_minus = sv[.!svy]
+                    rc_plus  = [sort([norm(sv_plus[i]-sv_plus[j]) for j in eachindex(sv_plus)])[2] for i in eachindex(sv_plus)]
+                    rc_minus = [sort([norm(sv_minus[i]-sv_minus[j]) for j in eachindex(sv_minus)])[2] for i in eachindex(sv_minus)]
+                    rc = vcat(rc_plus,rc_minus)
+                    rc_avg[i,j,m] = testerr(clf.predict(GramTest),Ytest)
+                    rc_mean_matrix[i,j,m] = mean(rc)
+                    rc_std_matrix[i,j,m] = std(rc)            end # Realisations
         end # Δ0
     end # Ptrain
 
     ## Save Data for later analysis
     str = "Δ_"*string(Δ0)*"_"*string(Dates.day(now()))
-    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix, "PP", PP, "Δ", Δ0, "d", dim, "M", M)
+    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix,"alpha_mean_matrix",alpha_mean_matrix,"alpha_std_matrix",alpha_std_matrix,"rc_mean_matrix",rc_mean_matrix,"rc_std_matrix",rc_std_matrix, "PP", PP, "Δ", Δ0, "d", dim, "M", M)
 end
 
 @everywhere function Run(parallelized_over,args...)

@@ -119,10 +119,8 @@ end
 
         for j in eachindex(Δ)
             Δ0 = Δ[j]
-            if Δ0 == 0 low = 1E3 ; high = 5E4
-            else       low = 1E3 ; high = 1E5
-            end
-            Ptest = Int(min(high,max(Ptrain^2,low))) # enforce low ≤ Ptest ≤ high
+            low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
+            Ptest = Int(round((min(high,max(10*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
             N = Ptrain + Ptest
 
             println("SVM for P = $Ptrain , Ptest = 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
@@ -168,9 +166,7 @@ end
 
         for j in eachindex(dim)
             d = dim[j]
-            if Δ0 == 0 low = 1E3 ; high = 5E4 ; pow = 1
-            else       low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
-            end
+            low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
             Ptest = Int(round((min(high,max(10*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
             N = Ptrain + Ptest
 

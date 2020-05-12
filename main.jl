@@ -6,7 +6,7 @@ parallelized_over = "d" # change accordingly [PP for i in eachindex(...)] and ad
 Δ = [0]
 PP = Int.(round.(10.0 .^range(1,stop=log10(500),length=30)))
 dimensions = [1]
-M = 20
+M = 25
 
 using Distributed
 addprocs(length(dimensions))

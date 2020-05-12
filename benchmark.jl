@@ -47,29 +47,47 @@ PP = [10,20,30,50,100,200,300,500] ; Ptest = 1000
 d = 10
 misclassification_error_matrix = zeros(length(PP))
 # coeff_SV = []
-PP = 5000 ; Ptest = 1
-for i in eachindex(PP)
-    Ptrain = PP[i]
-    X             = generate_X(Ptrain,Ptest,d,Δ)
-    Y             = generate_Y(X,Δ)
-    Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
-    Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
+PP = 50 ; Ptest = 100
+# for i in eachindex(PP)
+Ptrain = PP
+X             = generate_X(Ptrain,Ptest,d,Δ)
+Y             = generate_Y(X,Δ)
+Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
+Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
 
-    clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
-    GramTrain = Laplace_Kernel(Xtrain,Xtrain)
-    clf.fit(GramTrain, Ytrain)
-    if i == length(PP)
-        append!(coeff_SV,clf.dual_coef_)
-        # println("#dual coeff min : ",minimum(abs.(clf.dual_coef_)))
-        # # display(histogram(log10.(abs.(clf.dual_coef_')),yaxis=(:log10)))
-        # display(histogram(abs.(clf.dual_coef_'),axis=(:log10)))
-        # println("#alpha bar : ",mean(abs.(clf.dual_coef_)))
-    end
-    GramTest = Laplace_Kernel(Xtrain,Xtest)
+clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
+GramTrain = Laplace_Kernel(Xtrain,Xtrain)
+clf.fit(GramTrain, Ytrain)
+if i == length(PP)
+    # append!(coeff_SV,clf.dual_coef_)
+    # println("#dual coeff min : ",minimum(abs.(clf.dual_coef_)))
+    # # display(histogram(log10.(abs.(clf.dual_coef_')),yaxis=(:log10)))
+    # display(histogram(abs.(clf.dual_coef_'),axis=(:log10)))
+end
+# println("#alpha bar : ")
+println("#alpha bar : ",mean(abs.(clf.dual_coef_))," ± ",std(abs.(clf.dual_coef_)))
+println("#SVind : ",X[clf.support_ .+ 1][1])
+GramTest = Laplace_Kernel(Xtrain,Xtest)
 
-    misclassification_error_matrix[i] = testerr(clf.predict(GramTest),Ytest)
-end # Ptrain
+misclassification_error_matrix = testerr(clf.predict(GramTest),Ytest)
+# alpha_avg[i] = mean(abs.(clf.dual_coef_))
+# alpha_std[i] = mean(std.(clf.dual_coef_))
+
+# end # Ptrain
 println(length(coeff_SV))
 plot(box=true,xlabel="log10(SV coefficients)",ylabel="Count")
 histogram!(log10.(abs.(coeff_SV)),yaxis=(:log10),label="")
 savefig("Figures\\CoeffSV.pdf")
+
+## Compute rc
+sv = X[clf.support_ .+ 1]
+svy = Bool.((generate_Y(sv) .+ 1)/2)
+sv_plus = sv[svy]
+sv_minus = sv[.!svy]
+
+rc_plus  = [sort([norm(sv_plus[i]-sv_plus[j]) for j in eachindex(sv_plus)])[2] for i in eachindex(sv_plus)]
+rc_minus = [sort([norm(sv_minus[i]-sv_minus[j]) for j in eachindex(sv_minus)])[2] for i in eachindex(sv_minus)]
+rc = vcat(rc_plus,rc_minus)
+println("+ : ",mean(rc_plus)," ± ",std(rc_plus))
+println("- : ",mean(rc_minus)," ± ",std(rc_minus))
+println("Both : ",mean(rc)," ± ",std(rc))

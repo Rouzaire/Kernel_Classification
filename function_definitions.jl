@@ -59,6 +59,28 @@ end
     # return Xtest,categorical(Ytest)
 end
 
+@everywhere function rc(sv) ## returns the mean minimum distance separating support vectors (SV)
+    svy = Bool.((generate_Y(sv) .+ 1)/2)
+    sv_plus  = sv[svy]
+    sv_minus = sv[.!svy]
+    rc_plus  = compute_rc(sv_plus)
+    rc_minus = compute_rc(sv_minus)
+    rc = vcat(rc_plus,rc_minus)
+    return mean(rc),std(rc)
+end
+
+@everywhere function compute_rc(sv) # auxillary function that returns a list of the minimal distance to all other SV for each SV
+    rc  = zeros(length(sv))
+    for i in eachindex(sv)
+        dist_to_all_other_SV = [norm(sv[i]-sv[j]) for j in eachindex(sv)]
+        if length(dist_to_all_other_SV) > 1
+            rc[i] = sort(dist_to_all_other_SV)[2]
+        else
+            rc[i] = -1 ## impossible value, meaning that there is only one (or zero) SV, hence the distance to nearest SV is not defined
+        end
+    end
+    return rc
+end
 ## Matérn Covariance functions
 @everywhere function Matérn(h,ν,σ=1,ρ=100) # Matérn kernel
     ## h is the euclidian distance in real space R² (actual subspace = unit circle)
@@ -85,8 +107,12 @@ end
 end
 
 @everywhere function Run_fixed_dimension(PP,Δ,d,M=1) ## d is a integer passed in argument and the scan is over M and the vectors PP, Δ0
-    ## 3D Matrix to store data // dim 1 : PP //  dim 2 : Δ // dim 3 : Realisations
+    ## 3D Matrix to store data // dim 1 : PP //  dim 2 : margin // dim 3 : Realisations
     misclassification_error_matrix  = NaN*zeros(length(PP),length(Δ),M)
+    alpha_mean_matrix  = NaN*zeros(length(PP),length(Δ),M)
+    alpha_std_matrix   = NaN*zeros(length(PP),length(Δ),M)
+    rc_mean_matrix     = NaN*zeros(length(PP),length(Δ),M)
+    rc_std_matrix      = NaN*zeros(length(PP),length(Δ),M)
 
     for i in eachindex(PP)
         Ptrain = PP[i]
@@ -119,15 +145,7 @@ end
                     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
                 # r_c
                     sv = X[clf.support_ .+ 1]
-                    svy = Bool.((generate_Y(sv) .+ 1)/2)
-                    sv_plus = sv[svy]
-                    sv_minus = sv[.!svy]
-                    rc_plus  = [sort([norm(sv_plus[i]-sv_plus[j]) for j in eachindex(sv_plus)])[2] for i in eachindex(sv_plus)]
-                    rc_minus = [sort([norm(sv_minus[i]-sv_minus[j]) for j in eachindex(sv_minus)])[2] for i in eachindex(sv_minus)]
-                    rc = vcat(rc_plus,rc_minus)
-                    rc_avg[i,j,m] = testerr(clf.predict(GramTest),Ytest)
-                    rc_mean_matrix[i,j,m] = mean(rc)
-                    rc_std_matrix[i,j,m] = std(rc)
+                    rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv)
             end # Realisations
         end # Δ0
     end # Ptrain
@@ -140,6 +158,10 @@ end
 @everywhere function Run_fixed_delta(PP,Δ0,dim,M=1) ## Δ0 is a scalar passed in argument and the scan is over M and the vectors PP, dim
     ## 3D Matrix to store data // dim 1 : PP //  dim 2 : dimensions // dim 3 : Realisations
     misclassification_error_matrix  = NaN*zeros(length(PP),length(dim),M)
+    alpha_mean_matrix  = NaN*zeros(length(PP),length(dim),M)
+    alpha_std_matrix   = NaN*zeros(length(PP),length(dim),M)
+    rc_mean_matrix     = NaN*zeros(length(PP),length(dim),M)
+    rc_std_matrix      = NaN*zeros(length(PP),length(dim),M)
 
     for i in eachindex(PP)
         Ptrain = PP[i]
@@ -174,15 +196,8 @@ end
                     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
                 # r_c
                     sv = X[clf.support_ .+ 1]
-                    svy = Bool.((generate_Y(sv) .+ 1)/2)
-                    sv_plus = sv[svy]
-                    sv_minus = sv[.!svy]
-                    rc_plus  = [sort([norm(sv_plus[i]-sv_plus[j]) for j in eachindex(sv_plus)])[2] for i in eachindex(sv_plus)]
-                    rc_minus = [sort([norm(sv_minus[i]-sv_minus[j]) for j in eachindex(sv_minus)])[2] for i in eachindex(sv_minus)]
-                    rc = vcat(rc_plus,rc_minus)
-                    rc_avg[i,j,m] = testerr(clf.predict(GramTest),Ytest)
-                    rc_mean_matrix[i,j,m] = mean(rc)
-                    rc_std_matrix[i,j,m] = std(rc)            end # Realisations
+                    rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv)
+            end # Realisations
         end # Δ0
     end # Ptrain
 

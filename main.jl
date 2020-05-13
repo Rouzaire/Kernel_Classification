@@ -5,7 +5,7 @@ cd("D:\\Documents\\Ecole\\EPFL\\Internship_2019_ML\\Kernel Classification SVM")
 parallelized_over = "d" # change accordingly [PP for i in eachindex(...)] and addprocs
 Δ = [0]
 PP = Int.(round.(10.0 .^range(1,stop=log10(500),length=30)))
-dimensions = [1]
+dimensions = [1,2,3,5,10]
 M = 25
 
 using Distributed
@@ -16,4 +16,4 @@ addprocs(length(dimensions))
 
 @time Run(parallelized_over,[PP for i in eachindex(dimensions)],[Δ for i in eachindex(dimensions)],dimensions,[M for i in eachindex(dimensions)])
 JLD.save("Data\\parameters_"*string(Dates.day(now()))*".jld","PP", PP, "Δ", Δ, "dimensions", dimensions, "M", M,"parallelized_over",parallelized_over)
-rmprocs(workers())
+rmprocs(workers()) 

@@ -7,7 +7,7 @@ using SpecialFunctions,Distributed,LinearAlgebra,Distributions,PyCall
 include("function_definitions.jl")
 
 Δ0 = 0.01
-Ptrain = Int(1E1)
+Ptrain = Int(1E2)
 Ptest = Int(1E6)
 N = Ptrain + Ptest
 dimension = 3
@@ -91,3 +91,11 @@ rc = vcat(rc_plus,rc_minus)
 println("+ : ",mean(rc_plus)," ± ",std(rc_plus))
 println("- : ",mean(rc_minus)," ± ",std(rc_minus))
 println("Both : ",mean(rc)," ± ",std(rc))
+
+
+# ## G
+# u = rand(100)
+# G = Laplace_Kernel(u,u)
+# GG = G^2
+# invG = inv(G)
+# un = invG*G

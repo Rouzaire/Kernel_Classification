@@ -120,10 +120,10 @@ end
         for j in eachindex(Δ)
             Δ0 = Δ[j]
             low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
-            Ptest = Int(round((min(high,max(10*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
+            Ptest = Int(round((min(high,max(5*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
             N = Ptrain + Ptest
 
-            println("SVM for P = $Ptrain , Ptest = 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
+            println("SVM for P = $Ptrain , Ptest ≈ 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
 
                 X             = generate_X(Ptrain,Ptest,d,Δ0)
@@ -131,7 +131,7 @@ end
                 Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
                 Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
 
-                clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
+                clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # 800 MB allocated cache
                 GramTrain = Laplace_Kernel(Xtrain,Xtrain)
                 clf.fit(GramTrain, Ytrain)
                 GramTest = Laplace_Kernel(Xtrain,Xtest)
@@ -207,4 +207,16 @@ end
     if     parallelized_over == "d" pmap(Run_fixed_dimension,args...)
     elseif parallelized_over == "Δ" pmap(Run_fixed_delta,args...)
     end
+end
+
+@everywhere function smooth(X)
+    tmp = X
+    coeff = [1,1,1]
+    coeff = coeff./sum(coeff)
+    @assert isodd(length(coeff))
+    s = Int(floor(length(coeff)/2))
+    for i in 1+s:length(tmp)-s
+        tmp[i] = X[i-s:i+s]'*coeff
+    end
+    return tmp
 end

@@ -8,34 +8,49 @@
 
     # NB : Δ0 is the gap size bewteen 2 interfaces and SVband is the SV bandwidth
 
-@everywhere function generate_X(Ptrain,Ptest,dimension,Δ0=0.0)
-    @assert isinteger(dimension) ; @assert dimension > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
-    N = Int(Ptrain + Ptest)
+@everywhere function generate_TestSet(Ptest,d,Δ0,ξ=1)
+    # 0<ξ<2 is the exponent governing the cusp (ξ=1 for Laplace kernel, ξ=2 for RBF/Gaussian kernel)
+    # Note that ξ = min(2ν,2) for a kernel in the Matérn family
+    @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
 
-    # points will only be generated in this band, because beyond one can be sure that
+    # Points will only be generated in this band, because beyond one can be sure that
         # they will be correctly classified. It has to be wide enough to be sure that
         # all misclassified points are contained and thin enough to save memory later
         # in the code
-    ξ = 1 # For Laplace_Kernel
-    exponent = (dimension-1+ξ)/(3dimension-3+ξ)
-    SVband = Ptrain^-exponent ## generous upperbound, according to the paper "How isotropic kernels learn simple invariants" de Jonas and my own benchmarks
+    exponent = (d-1+ξ)/(3d-3+ξ)
+    SVband = Ptest^-exponent ## upperbound, according to the paper "How isotropic kernels learn simple invariants" de Jonas and my own benchmarks
     weight_band = 2SVband/(π - Δ0) # fraction of the surface occupied by this band (to weight the final result)
 
-    M = Int(ceil(2*N/weight_band/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
+    M = Int(ceil(2*Ptest/weight_band/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
 
-    X = rand(MvNormal(zeros(dimension+1),I(dimension+1)),M)
+    X = rand(MvNormal(zeros(d+1),I(d+1)),M)
     normX = [norm(X[:,i]) for i in 1:M]
     X_normalized = [(X[:,i] ./ normX[i]) for i in 1:M]
     X_normalized = X_normalized[[Δ0/2 ≤ abs(X_normalized[i][1]) ≤ Δ0/2 + SVband for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
     Nkept = length(X_normalized)
-    @assert Nkept ≥ N
-    X_normalized = X_normalized[1:N]
+    @assert Nkept ≥ Ptest
+    X_normalized = X_normalized[1:Ptest]
 
-    # println("N = $N ,  Actually generated = $M , Wasted = $((Nkept-N))")
-    return X_normalized , weight_band
+    # println("N = $Ptest ,  Actually generated = $M , Wasted = $((Nkept-Ptest))")
+    return X_normalized , generate_Y(X_normalized,Δ0) , weight_band
 end
 
-@everywhere function generate_Y(X,Δ0=0.0)
+
+@everywhere function generate_TrainSet(Ptrain,d,Δ0)
+    @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
+
+    M = Int(ceil(2*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
+    X = rand(MvNormal(zeros(d+1),I(d+1)),M)
+    normX = [norm(X[:,i]) for i in 1:M]
+    X_normalized = [(X[:,i] ./ normX[i]) for i in 1:M]
+    X_normalized = X_normalized[[Δ0/2 ≤ abs(X_normalized[i][1]) for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
+    @assert length(X_normalized) ≥ Ptrain
+    X_normalized = X_normalized[1:Ptrain]
+
+    return X_normalized , generate_Y(X_normalized,Δ0)
+end
+
+@everywhere function generate_Y(X,Δ0)
     labels = zeros(length(X))
     for i in eachindex(X)
         if X[i][1] ≥ Δ0/2 labels[i] = + 1
@@ -43,29 +58,6 @@ end
         end
     end
     return labels
-end
-
-# The way these functions are defined ensure the non-overlapping of the testing and training sets
-@everywhere function extract_TrainSet(X,Y,Ptrain)
-    dimension = length(X[1])
-    Xtrain = zeros(Ptrain,dimension) ; Ytrain = zeros(Ptrain)
-    for i in 1:Ptrain
-        Xtrain[i,:] = X[i]
-        Ytrain[i] = Y[i]
-    end
-    return Xtrain,Ytrain
-    # return Xtrain,categorical(Ytrain)
-end
-
-@everywhere function extract_TestSet(X,Y,Ptest)
-    dimension = length(X[1])
-    Xtest = zeros(Ptest,dimension) ; Ytest = zeros(Ptest)
-    for i in 1:Ptest
-        Xtest[i,:] = X[end-i+1]
-        Ytest[i] = Y[end-i+1]
-    end
-    return Xtest,Ytest
-    # return Xtest,categorical(Ytest)
 end
 
 @everywhere function rc(sv) ## returns the mean minimum distance separating support vectors (SV)

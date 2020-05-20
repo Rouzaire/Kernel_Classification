@@ -2,13 +2,34 @@
 @everywhere dist(x,y) = norm(x-y) # euclidien distance
 @everywhere testerr(pred,Y) = mean(pred .!= Y)
 
-## Generate x components of the whole dataset, uniformly distributed on a hypersphere of dimension d=D-1.
-    # for instance, in d=1, X = unit circle in R^2
-    # for instance, in d=2, X = unit sphere in R^3
+## Generation of data, uniformly on the d-dimensional unit-hypersphere (d=1 -> X lies on unit circle in R^2 // d=2 -> X lies on unit sphere in R^3)
+    # Notation : Δ0 is the gap size bewteen 2 interfaces and SVband is the SV bandwidth
 
-    # NB : Δ0 is the gap size bewteen 2 interfaces and SVband is the SV bandwidth
+@everywhere function generate_Y(X,Δ0)
+    labels = zeros(length(X))
+    for i in eachindex(X)
+        if X[i][1] ≥ Δ0/2 labels[i] = + 1
+        else              labels[i] = - 1
+        end
+    end
+    return labels
+end
 
-@everywhere function generate_TestSet(Ptest,d,Δ0,ξ=1)
+@everywhere function generate_TrainSet(Ptrain,d,Δ0)
+    @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
+
+    M = Int(ceil(2*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
+    X = rand(MvNormal(zeros(d+1),I(d+1)),M)
+    normX = [norm(X[:,i]) for i in 1:M]
+    X_normalized = [(X[:,i] ./ normX[i]) for i in 1:M]
+    X_normalized = X_normalized[[Δ0/2 ≤ abs(X_normalized[i][1]) for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
+    @assert length(X_normalized) ≥ Ptrain
+    X_normalized = X_normalized[1:Ptrain]
+
+    return X_normalized , generate_Y(X_normalized,Δ0)
+end
+
+@everywhere function generate_TestSet(Ptest,d,Δ0;ξ=1)
     # 0<ξ<2 is the exponent governing the cusp (ξ=1 for Laplace kernel, ξ=2 for RBF/Gaussian kernel)
     # Note that ξ = min(2ν,2) for a kernel in the Matérn family
     @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
@@ -18,7 +39,8 @@
         # all misclassified points are contained and thin enough to save memory later
         # in the code
     exponent = (d-1+ξ)/(3d-3+ξ)
-    SVband = Ptest^-exponent ## upperbound, according to the paper "How isotropic kernels learn simple invariants" de Jonas and my own benchmarks
+    SVband = Ptest^(-exponent) ## upperbound, according to the paper "How isotropic kernels learn simple invariants" de Jonas and my own benchmarks
+    SVband = 0.1
     weight_band = 2SVband/(π - Δ0) # fraction of the surface occupied by this band (to weight the final result)
 
     M = Int(ceil(2*Ptest/weight_band/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
@@ -35,33 +57,8 @@
     return X_normalized , generate_Y(X_normalized,Δ0) , weight_band
 end
 
-
-@everywhere function generate_TrainSet(Ptrain,d,Δ0)
-    @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
-
-    M = Int(ceil(2*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
-    X = rand(MvNormal(zeros(d+1),I(d+1)),M)
-    normX = [norm(X[:,i]) for i in 1:M]
-    X_normalized = [(X[:,i] ./ normX[i]) for i in 1:M]
-    X_normalized = X_normalized[[Δ0/2 ≤ abs(X_normalized[i][1]) for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
-    @assert length(X_normalized) ≥ Ptrain
-    X_normalized = X_normalized[1:Ptrain]
-
-    return X_normalized , generate_Y(X_normalized,Δ0)
-end
-
-@everywhere function generate_Y(X,Δ0)
-    labels = zeros(length(X))
-    for i in eachindex(X)
-        if X[i][1] ≥ Δ0/2 labels[i] = + 1
-        else              labels[i] = - 1
-        end
-    end
-    return labels
-end
-
-@everywhere function rc(sv) ## returns the mean minimum distance separating support vectors (SV)
-    svy = Bool.((generate_Y(sv) .+ 1)/2)
+@everywhere function rc(sv,Δ0) ## returns the mean minimum distance separating support vectors (SV)
+    svy = Bool.((generate_Y(sv,Δ0) .+ 1)/2)
     sv_plus  = sv[svy]
     sv_minus = sv[.!svy]
     rc_plus  = compute_rc(sv_plus)
@@ -123,15 +120,12 @@ end
             low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
             # Ptest = Int(round((min(high,max(5*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
             if Δ0 == 0 Ptest = 1000 else Ptest = 10000 end
-            N = Ptrain + Ptest
 
-            println("SVM for P = $Ptrain , Ptest ≈ 1E$(round(log10(Ptest),digits=1)) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
+            println("SVM for P = $Ptrain , Ptest = 1E$(round(log10(Ptest),digits=1)) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
 
-                X,weight_band = generate_X(Ptrain,Ptest,d,Δ0)
-                Y             = generate_Y(X,Δ0)
-                Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
-                Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
+                Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0,ξ=1)
 
                 clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # 800 MB allocated cache
                 GramTrain = Laplace_Kernel(Xtrain,Xtrain)
@@ -144,8 +138,8 @@ end
                     alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
                     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
                 # r_c
-                    sv = X[clf.support_ .+ 1]
-                    rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv)
+                    sv = Xtrain[clf.support_ .+ 1]
+                    rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
             end # Realisations
         end # Δ0
     end # Ptrain
@@ -171,15 +165,12 @@ end
             low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
             # Ptest = Int(round((min(high,max(10*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
             if Δ0 == 0 Ptest = 1000 else Ptest = 10000 end
-            N = Ptrain + Ptest
 
             println("SVM for P = $Ptrain , Ptest = 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
 
-                X,weight_band = generate_X(Ptrain,Ptest,d,Δ0)
-                Y             = generate_Y(X,Δ0)
-                Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
-                Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
+                Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0,ξ=1)
 
                 clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
                 GramTrain = Laplace_Kernel(Xtrain,Xtrain)
@@ -192,8 +183,8 @@ end
                     alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
                     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
                 # r_c
-                    sv = X[clf.support_ .+ 1]
-                    rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv)
+                    sv = Xtrain[clf.support_ .+ 1]
+                    rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
             end # Realisations
         end # Δ0
     end # Ptrain
@@ -210,8 +201,8 @@ end
     end
 end
 
-@everywhere function smooth(X)
-    tmp = X
+@everywhere function smooth(X) ## for smoother plots
+    tmp = copy(X)
     coeff = [1,2,1]
     coeff = coeff./sum(coeff)
     @assert isodd(length(coeff))

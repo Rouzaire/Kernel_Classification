@@ -4,7 +4,7 @@ pyplot()
 include("function_definitions.jl")
 
 ##
-dayy = "20" ; param = load("Data\\parameters_"*dayy*".jld")
+dayy = "21" ; param = load("Data\\parameters_"*dayy*".jld")
 PP = param["PP"]
 M  = param["M"]
 Δ  = param["Δ"]
@@ -56,10 +56,10 @@ pow_rc_sphere = -2 ./(3dimensions .- 3 .+ ξ)
 coeff = [0.5,0.4,0.3,0.5,0.5]/5
 p = plot(box=true,yticks=true,legend=:topright,xlabel="P",ylabel="Test Error avg. over $M realisations",title="No Gap")
 for j in 1:length(dimensions)
-    plot!(PP, error_avg[:,1,j,1],ribbon=error_std[:,1,j,1],axis=:log,color=j,label="d = $(dimensions[j]) , Slope $(round(β[j],digits=2))")
-    # plot!(PP, coeff[j]*PP .^ (-β[j]),line=:dash,axis=:log,color=j,label="")
+    plot!(PP, smooth(error_avg[:,1,j,1]),ribbon=0*error_std[:,1,j,1],axis=:log,color=j,label="d = $(dimensions[j]) , Slope $(round(β[j],digits=2))")
+    plot!(PP, coeff[j]*PP .^ (-β[j]),line=:dash,axis=:log,color=j,label="")
 end
-display(p)
+# display(p)
 savefig("Figures\\XXtest_error_no_gap.pdf")
 
 p = plot(box=true,yticks=nothing,legend=:topright,xlabel="P",ylabel="̄α avg. over $M realisations",title="No Gap")
@@ -84,16 +84,16 @@ display(p)
 savefig("Figures\\0test_error_gap.pdf")
 
 ## Investigate the departure from powerlaw
-factor = 1
+factor = 0
 p = plot(box=true,legend=:topright,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime")
 for j in eachindex(dimensions)
-    for i in 1:2
+    for i in 1:length(Δ)
         plot!(PP,smooth(error_avg[:,i,j,1]),ribbon=factor*error_std[:,i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
     end
 end
 display(p)
-savefig("Figures\\xxdeparture.pdf")
+savefig("Figures\\smdeparture.pdf")
 println()
-println(error_avg[:,6,1,1])
+println(error_avg[:,2,1,1])
 println()
 error_std[:,1,1,1]

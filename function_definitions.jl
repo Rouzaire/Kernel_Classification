@@ -5,25 +5,34 @@
 ## Generate x components of the whole dataset, uniformly distributed on a hypersphere of dimension d=D-1.
     # for instance, in d=1, X = unit circle in R^2
     # for instance, in d=2, X = unit sphere in R^3
+
+    # NB : Δ0 is the gap size bewteen 2 interfaces and SVband is the SV bandwidth
+
 @everywhere function generate_X(Ptrain,Ptest,dimension,Δ0=0.0)
     @assert isinteger(dimension) ; @assert dimension > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
     N = Int(Ptrain + Ptest)
-    if Δ0 == 0
-        X = rand(MvNormal(zeros(dimension+1),I(dimension+1)),N)
-        normX = [norm(X[:,i]) for i in 1:N]
-        X_normalized = [(X[:,i] ./ normX[i]) for i in 1:N]
-    else
-        Ntilde = Int(ceil(2N/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
-        X = rand(MvNormal(zeros(dimension+1),I(dimension+1)),Ntilde)
-        M = size(X)[2]
-        normX = [norm(X[:,i]) for i in 1:M]
-        X_normalized = [(X[:,i] ./ normX[i]) for i in 1:M]
-        X_normalized = X_normalized[[abs(X_normalized[i][1]) ≥ Δ0/2 for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
-        Nkept = length(X_normalized)
-        X_normalized = X_normalized[1:N] # keep only the N first datapoint
-    end
-    # println("N = $N ,  Actually generated = $Ntilde , Thrown away = $(Ntilde-Nkept)")
-    return X_normalized
+
+    # points will only be generated in this band, because beyond one can be sure that
+        # they will be correctly classified. It has to be wide enough to be sure that
+        # all misclassified points are contained and thin enough to save memory later
+        # in the code
+    ξ = 1 # For Laplace_Kernel
+    exponent = (dimension-1+ξ)/(3dimension-3+ξ)
+    SVband = Ptrain^-exponent ## generous upperbound, according to the paper "How isotropic kernels learn simple invariants" de Jonas and my own benchmarks
+    weight_band = 2SVband/(π - Δ0) # fraction of the surface occupied by this band (to weight the final result)
+
+    M = Int(ceil(2*N/weight_band/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
+
+    X = rand(MvNormal(zeros(dimension+1),I(dimension+1)),M)
+    normX = [norm(X[:,i]) for i in 1:M]
+    X_normalized = [(X[:,i] ./ normX[i]) for i in 1:M]
+    X_normalized = X_normalized[[Δ0/2 ≤ abs(X_normalized[i][1]) ≤ Δ0/2 + SVband for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
+    Nkept = length(X_normalized)
+    @assert Nkept ≥ N
+    X_normalized = X_normalized[1:N]
+
+    # println("N = $N ,  Actually generated = $M , Wasted = $((Nkept-N))")
+    return X_normalized , weight_band
 end
 
 @everywhere function generate_Y(X,Δ0=0.0)
@@ -106,7 +115,7 @@ end
     return K' ## the adjoint is necessary to match the desired format of sklearn
 end
 
-@everywhere function Run_fixed_dimension(PP,Δ,d,M=1) ## d is a integer passed in argument and the scan is over M and the vectors PP, Δ0
+@everywhere function Run_fixed_dimension(PP,Δ,d,M=1) ## d is a integer passed in argument and the scan is over M and the vectors PP, Δ (gaps between interfaces)
     ## 3D Matrix to store data // dim 1 : PP //  dim 2 : margin // dim 3 : Realisations
     misclassification_error_matrix  = NaN*zeros(length(PP),length(Δ),M)
     alpha_mean_matrix  = NaN*zeros(length(PP),length(Δ),M)
@@ -120,13 +129,14 @@ end
         for j in eachindex(Δ)
             Δ0 = Δ[j]
             low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
-            Ptest = Int(round((min(high,max(5*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
+            # Ptest = Int(round((min(high,max(5*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
+            if Δ0 == 0 Ptest = 1000 else Ptest = 10000 end
             N = Ptrain + Ptest
 
-            println("SVM for P = $Ptrain , Ptest ≈ 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
+            println("SVM for P = $Ptrain , Ptest ≈ 1E$(round(log10(Ptest),digits=1)) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
 
-                X             = generate_X(Ptrain,Ptest,d,Δ0)
+                X,weight_band = generate_X(Ptrain,Ptest,d,Δ0)
                 Y             = generate_Y(X,Δ0)
                 Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
                 Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
@@ -137,7 +147,7 @@ end
                 GramTest = Laplace_Kernel(Xtrain,Xtest)
 
                 # Test Error
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
                 # α
                     alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
                     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
@@ -167,15 +177,14 @@ end
         for j in eachindex(dim)
             d = dim[j]
             low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
-            Ptest = Int(round((min(high,max(10*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
+            # Ptest = Int(round((min(high,max(10*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
+            if Δ0 == 0 Ptest = 1000 else Ptest = 10000 end
             N = Ptrain + Ptest
-
-
 
             println("SVM for P = $Ptrain , Ptest = 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
 
-                X             = generate_X(Ptrain,Ptest,d,Δ0)
+                X,weight_band = generate_X(Ptrain,Ptest,d,Δ0)
                 Y             = generate_Y(X,Δ0)
                 Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
                 Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
@@ -186,7 +195,7 @@ end
                 GramTest = Laplace_Kernel(Xtrain,Xtest)
 
                 # Test Error
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
                 # α
                     alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
                     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
@@ -211,7 +220,7 @@ end
 
 @everywhere function smooth(X)
     tmp = X
-    coeff = [1,1,1]
+    coeff = [1,2,1]
     coeff = coeff./sum(coeff)
     @assert isodd(length(coeff))
     s = Int(floor(length(coeff)/2))

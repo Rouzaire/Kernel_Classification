@@ -1,28 +1,30 @@
 cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
 using Pkg; Pkg.activate("."); Pkg.instantiate();
-# using Plots, SpecialFunctions, JLD, Dates,Distributed, LinearAlgebra, Distributions,MLJ
-# pyplot() ; plot()
+using Plots, SpecialFunctions, JLD, Dates,Distributed, LinearAlgebra, Distributions,MLJ
+pyplot() ; plot()
 using SpecialFunctions,Distributed,LinearAlgebra,Distributions,PyCall
-# @MLJ.load SVC pkg=LIBSVM
+SV = pyimport("sklearn.svm")
+
 include("function_definitions.jl")
 
-Δ0 = 0.01
-Ptrain = Int(1E2)
-Ptest = Int(1E6)
+Δ0 = 0.2
+Ptrain = Int(1E3)
+Ptest = Int(1E3)
 N = Ptrain + Ptest
-dimension = 3
+dimension = 2
 δ = Ptrain^(-1/dimension)
 
-X = generate_X(Ptrain,Ptest,dimension,Δ0)
+X,weight_band = generate_X(Ptrain,Ptest,dimension,Δ0)
 Y = generate_Y(X,Δ0)
+mean(Y)
 Xtest,Ytest = extract_TestSet(X,Y,Ptest)
 Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
 
 # scatter([X[i][1] for i in 1:N],[X[i][2] for i in 1:N],[X[i][3] for i in 1:N],label=nothing,camera=(30,70))
 # xlabel!("x")
 # ylabel!("y")
-# title!("Distribution with Margin Δ0 = 0.5")
-# savefig("distrib_X.pdf")
+# title!("Distribution with Margin Δ0 = $Δ0")
+# savefig("distrib_XX.pdf")
 
 ## First SVM tests
 svc_model = SVC(cost=1E10)
@@ -43,37 +45,44 @@ include("function_definitions.jl")
 SV = pyimport("sklearn.svm")
 
 PP = [10,20,30,50,100,200,300,500] ; Ptest = 1000
-Δ = 0.0
-d = 10
+PP = 5000 ; Ptest = 10000
+Δ = 0.04
+d = 2
+M = 10
 misclassification_error_matrix = zeros(length(PP))
 # coeff_SV = []
-PP = 50 ; Ptest = 100
-# for i in eachindex(PP)
-Ptrain = PP
-X             = generate_X(Ptrain,Ptest,d,Δ)
-Y             = generate_Y(X,Δ)
-Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
-Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
+for i in eachindex(PP)
+    tmp = zeros(M)
+    for m in 1:M
+    Ptrain = PP[i]
+    X,weight_band = generate_X(Ptrain,Ptest,d,Δ)
+    Y             = generate_Y(X,Δ)
+    Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
+    Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
 
-clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
-GramTrain = Laplace_Kernel(Xtrain,Xtrain)
-clf.fit(GramTrain, Ytrain)
-if i == length(PP)
+    clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
+    GramTrain = Laplace_Kernel(Xtrain,Xtrain)
+    clf.fit(GramTrain, Ytrain)
+    # alpha_std[i] = mean(std.(clf.dual_coef_))
+    # if i == length(PP)
     # append!(coeff_SV,clf.dual_coef_)
     # println("#dual coeff min : ",minimum(abs.(clf.dual_coef_)))
     # # display(histogram(log10.(abs.(clf.dual_coef_')),yaxis=(:log10)))
     # display(histogram(abs.(clf.dual_coef_'),axis=(:log10)))
-end
-# println("#alpha bar : ")
-println("#alpha bar : ",mean(abs.(clf.dual_coef_))," ± ",std(abs.(clf.dual_coef_)))
-println("#SVind : ",X[clf.support_ .+ 1][1])
-GramTest = Laplace_Kernel(Xtrain,Xtest)
+    # end
+    # println("SV : ")
+    # println("#alpha bar : ",mean(abs.(clf.dual_coef_))," ± ",std(abs.(clf.dual_coef_)))
+    # println("#SVind : ",minimum([X[clf.support_ .+ 1][i][1] for i in 1:length(X[clf.support_ .+ 1])]))
+    # println("#SVind : ",maximum([X[clf.support_ .+ 1][i][1] for i in 1:length(X[clf.support_ .+ 1])]))
+    GramTest = Laplace_Kernel(Xtrain,Xtest)
+    tmp[m] = testerr(clf.predict(GramTest),Ytest)*weight_band
+    end
 
-misclassification_error_matrix = testerr(clf.predict(GramTest),Ytest)
-# alpha_avg[i] = mean(abs.(clf.dual_coef_))
-# alpha_std[i] = mean(std.(clf.dual_coef_))
+    misclassification_error_matrix[i] = mean(tmp)
+    # alpha_avg[i] = mean(abs.(clf.dual_coef_))
 
-# end # Ptrain
+end # Ptrain
+misclassification_error_matrix
 println(length(coeff_SV))
 plot(box=true,xlabel="log10(SV coefficients)",ylabel="Count")
 histogram!(log10.(abs.(coeff_SV)),yaxis=(:log10),label="")
@@ -99,3 +108,5 @@ println("Both : ",mean(rc)," ± ",std(rc))
 # GG = G^2
 # invG = inv(G)
 # un = invG*G
+
+##

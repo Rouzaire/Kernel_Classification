@@ -4,7 +4,7 @@ pyplot()
 include("function_definitions.jl")
 
 ##
-dayy = "17" ; param = load("Data\\parameters_"*dayy*".jld")
+dayy = "20" ; param = load("Data\\parameters_"*dayy*".jld")
 PP = param["PP"]
 M  = param["M"]
 Δ  = param["Δ"]
@@ -53,43 +53,47 @@ pow_̄α_sphere = 2ξ./(3dimensions .- 3 .+ ξ)
 pow_rc_sphere = -2 ./(3dimensions .- 3 .+ ξ)
 
 ## Without margin
-coeff = [0.5,0.4,0.3,0.5,0.5]
-plot(box=true,yticks=nothing,legend=:topright,xlabel="P",ylabel="Test Error avg. over $M realisations",title="No Gap")
+coeff = [0.5,0.4,0.3,0.5,0.5]/5
+p = plot(box=true,yticks=true,legend=:topright,xlabel="P",ylabel="Test Error avg. over $M realisations",title="No Gap")
 for j in 1:length(dimensions)
-    plot!(PP,10^j * error_avg[:,1,j,1],ribbon=10^j *0.5*error_std[:,1,j,1],axis=:log,color=j,label="d = $(dimensions[j]) , Slope $(round(β[j],digits=2))")
-    plot!(PP,10^j * coeff[j]*PP .^ (-βsphere[j]),line=:dash,axis=:log,color=j,label="")
+    plot!(PP, error_avg[:,1,j,1],ribbon=error_std[:,1,j,1],axis=:log,color=j,label="d = $(dimensions[j]) , Slope $(round(β[j],digits=2))")
+    # plot!(PP, coeff[j]*PP .^ (-β[j]),line=:dash,axis=:log,color=j,label="")
 end
-savefig("Figures\\test_error_no_gap.pdf")
+display(p)
+savefig("Figures\\XXtest_error_no_gap.pdf")
 
-plot(box=true,yticks=nothing,legend=:topright,xlabel="P",ylabel="̄α avg. over $M realisations",title="No Gap")
+p = plot(box=true,yticks=nothing,legend=:topright,xlabel="P",ylabel="̄α avg. over $M realisations",title="No Gap")
 for j in 1:length(dimensions)
     plot!(PP,10^j * alpha_mean_avg[:,1,j,1],ribbon=10^j *0.5*alpha_mean_std[:,1,j,1],axis=:log,color=j,label="d = $(dimensions[j]) , Slope $(round(β[j],digits=2))")
     plot!(PP,10^j * coeff[j]*PP .^ (pow_αbar[j]),line=:dash,axis=:log,color=j,label="")
     # plot!(PP,10^j * coeff[j]*PP .^ (-β[j]),line=:dot,axis=:log,color=j,label="")
 end
-savefig("Figures\\alphabar_no_gap.pdf")
+# display(p)
+# savefig("Figures\\alphabar_no_gap.pdf")
 
 
 ## With margin = Δ[2]
 factor = 0.25
 coeff = [0.5,0.4,0.3,0.5]
-plot(box=true,legend=:topleft,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Gap Δ0 = $(Δ[1])")
+p = plot(box=true,legend=:topleft,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Gap Δ0 = $(Δ[2])")
 for j in 1:length(dimensions)
-    plot!(PP,(error_avg[:,1,j,1]),ribbon=factor*error_std[:,1,j,1],axis=:log,color=j,label="d = $(dimensions[j])")
+    plot!(PP,(error_avg[:,2,j,1]),ribbon=factor*error_std[:,2,j,1],axis=:log,color=j,label="d = $(dimensions[j])")
     plot!(PP,100*PP .^-2,line=:dash,axis=:log,color=j,label="")
 end
-xlabel!("P")
+display(p)
 savefig("Figures\\0test_error_gap.pdf")
 
 ## Investigate the departure from powerlaw
-factor = 0.25
-plot(box=true,legend=:topright,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime")
+factor = 1
+p = plot(box=true,legend=:topright,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime")
 for j in eachindex(dimensions)
-    for i in eachindex(Δ)
-        plot!(PP,error_avg[:,i,j,1],ribbon=factor*error_std[:,i,j,1],axis=:log,color=i,label="Δ = $(Δ[i])")
+    for i in 1:2
+        plot!(PP,smooth(error_avg[:,i,j,1]),ribbon=factor*error_std[:,i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
     end
 end
-xlabel!("P")
-# # savefig("Figures\\departure.pdf")
-error_avg[:,1,1,1]
+display(p)
+savefig("Figures\\xxdeparture.pdf")
+println()
+println(error_avg[:,6,1,1])
+println()
 error_std[:,1,1,1]

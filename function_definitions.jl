@@ -29,7 +29,7 @@ end
     return X_normalized , generate_Y(X_normalized,Δ0)
 end
 
-@everywhere function generate_TestSet(Ptest,d,Δ0;ξ=1)
+@everywhere function generate_TestSet(Ptest,d,Δ0)
     # 0<ξ<2 is the exponent governing the cusp (ξ=1 for Laplace kernel, ξ=2 for RBF/Gaussian kernel)
     # Note that ξ = min(2ν,2) for a kernel in the Matérn family
     @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
@@ -38,8 +38,6 @@ end
         # they will be correctly classified. It has to be wide enough to be sure that
         # all misclassified points are contained and thin enough to save memory later
         # in the code
-    exponent = (d-1+ξ)/(3d-3+ξ)
-    SVband = Ptest^(-exponent) ## upperbound, according to the paper "How isotropic kernels learn simple invariants" de Jonas and my own benchmarks
     SVband = 0.2
     weight_band = 2SVband/(π - Δ0) # fraction of the surface occupied by this band (to weight the final result)
 
@@ -104,7 +102,7 @@ end
     return K' ## the adjoint is necessary to match the desired format of sklearn
 end
 
-@everywhere function Run_fixed_dimension(PP,Δ,d,M=1) ## d is a integer passed in argument and the scan is over M and the vectors PP, Δ (gaps between interfaces)
+@everywhere function Run_fixed_dimension(PP,Δ,d,M=1) ## d=dimension is a integer passed in argument and the scan is over M and the vectors PP, Δ (gaps between interfaces)
     ## 3D Matrix to store data // dim 1 : PP //  dim 2 : margin // dim 3 : Realisations
     misclassification_error_matrix  = NaN*zeros(length(PP),length(Δ),M)
     alpha_mean_matrix  = NaN*zeros(length(PP),length(Δ),M)
@@ -123,17 +121,26 @@ end
 
             println("SVM for P = $Ptrain , Ptest = 1E$(round(log10(Ptest),digits=1)) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
+                ## If Kernel = Laplace
+                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+                    #
+                    # clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
+                    # GramTrain = Laplace_Kernel(Xtrain,Xtrain)
+                    # clf.fit(GramTrain, Ytrain)
+                    #
+                    # GramTest = Laplace_Kernel(Xtrain,Xtest)
+                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
+                ## If Kernel = Gaussian (default kernel of the Python SVC machine)
+                    Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
 
-                Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-                Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0,ξ=1)
+                    clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
+                    clf.fit(XTrain, Ytrain)
 
-                clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # 800 MB allocated cache
-                GramTrain = Laplace_Kernel(Xtrain,Xtrain)
-                clf.fit(GramTrain, Ytrain)
-                GramTest = Laplace_Kernel(Xtrain,Xtest)
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(XTest),Ytest)*weight_band
 
-                # Test Error
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
+        ## The following is the same for any kernel
                 # α
                     alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
                     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
@@ -165,28 +172,29 @@ end
             low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
             # Ptest = Int(round((min(high,max(10*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
             Ptest = 1000
-
-            println("SVM for P = $Ptrain , Ptest = 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
+            println("SVM for P = $Ptrain , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
 
             for m in 1:M
+                ## If Kernel = Laplace
+                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+                    #
+                    # clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
+                    # GramTrain = Laplace_Kernel(Xtrain,Xtrain)
+                    # clf.fit(GramTrain, Ytrain)
+                    #
+                    # GramTest = Laplace_Kernel(Xtrain,Xtest)
+                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
+                ## If Kernel = Gaussian (default kernel of the Python SVC machine)
+                    Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
 
-                Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-                Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0,ξ=1)
+                    clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
+                    clf.fit(XTrain, Ytrain)
 
-                ## Laplace Kernel
-                # clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache in MB
-                # GramTrain = Laplace_Kernel(Xtrain,Xtrain)
-                # clf.fit(GramTrain, Ytrain)
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(XTest),Ytest)*weight_band
 
-                ## Gaussian Kernel
-                clf = SV.SVC(C=1E10,cache_size=1000) # 800 MB allocated cache
-                GramTrain = Laplace_Kernel(Xtrain,Xtrain)
-                clf.fit(GramTrain, Ytrain)
-
-
-                # Test Error
-                    GramTest = Laplace_Kernel(Xtrain,Xtest)
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
+        ## The following is the same for any kernel
                 # α
                     alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
                     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))

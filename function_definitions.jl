@@ -40,7 +40,7 @@ end
         # in the code
     exponent = (d-1+ξ)/(3d-3+ξ)
     SVband = Ptest^(-exponent) ## upperbound, according to the paper "How isotropic kernels learn simple invariants" de Jonas and my own benchmarks
-    SVband = 0.1
+    SVband = 0.2
     weight_band = 2SVband/(π - Δ0) # fraction of the surface occupied by this band (to weight the final result)
 
     M = Int(ceil(2*Ptest/weight_band/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
@@ -119,7 +119,7 @@ end
             Δ0 = Δ[j]
             low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
             # Ptest = Int(round((min(high,max(5*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
-            if Δ0 == 0 Ptest = 1000 else Ptest = 10000 end
+            if Δ0 == 0 Ptest = 1000 else Ptest = 1000 end
 
             println("SVM for P = $Ptrain , Ptest = 1E$(round(log10(Ptest),digits=1)) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
@@ -164,20 +164,28 @@ end
             d = dim[j]
             low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
             # Ptest = Int(round((min(high,max(10*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
-            if Δ0 == 0 Ptest = 1000 else Ptest = 10000 end
+            Ptest = 1000
 
             println("SVM for P = $Ptrain , Ptest = 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
+
             for m in 1:M
 
                 Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
                 Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0,ξ=1)
 
-                clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
+                ## Laplace Kernel
+                # clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache in MB
+                # GramTrain = Laplace_Kernel(Xtrain,Xtrain)
+                # clf.fit(GramTrain, Ytrain)
+
+                ## Gaussian Kernel
+                clf = SV.SVC(C=1E10,cache_size=1000) # 800 MB allocated cache
                 GramTrain = Laplace_Kernel(Xtrain,Xtrain)
                 clf.fit(GramTrain, Ytrain)
-                GramTest = Laplace_Kernel(Xtrain,Xtest)
+
 
                 # Test Error
+                    GramTest = Laplace_Kernel(Xtrain,Xtest)
                     misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
                 # α
                     alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
@@ -201,6 +209,7 @@ end
     end
 end
 
+## Functions used for data analysis
 @everywhere function smooth(X) ## for smoother plots
     tmp = copy(X)
     coeff = [1,2,1]
@@ -211,4 +220,21 @@ end
         tmp[i] = X[i-s:i+s]'*coeff
     end
     return tmp
+end
+
+@everywhere function cut_zeros(error_avg) # to cut away data that is zeros
+    length_PP  = size(error_avg)[1]
+    length_gap = size(error_avg)[2]
+    length_dim = size(error_avg)[3]
+    s = zeros(length_gap,length_dim)
+    for i in 1:length_gap
+        for j in 1:length_dim
+            if findfirst(iszero,error_avg[:,i,j,1]) == nothing
+                s[i,j] = length_PP
+            else
+                s[i,j] = findfirst(iszero,error_avg[:,i,j,1]) - 1
+            end
+        end
+    end
+    return Int.(s)
 end

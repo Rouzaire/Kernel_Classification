@@ -141,7 +141,11 @@ end
                     clf.fit(XTrain, Ytrain)
 
                     misclassification_error_matrix[i,j,m] = testerr(clf.predict(XTest),Ytest)*weight_band
-                    str = "RBF_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+<<<<<< HEAD
+<<<<<< HEAD
+D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
         ## The following is the same for any kernel
                 # α

@@ -119,7 +119,7 @@ end
             # Ptest = Int(round((min(high,max(5*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
             if Δ0 == 0 Ptest = 1000 else Ptest = 1000 end
 
-            println("SVM for P = $Ptrain , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
+            println("SVM for P = $Ptrain, Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
                 ## If Kernel = Laplace
                     # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
@@ -141,11 +141,8 @@ end
                     clf.fit(XTrain, Ytrain)
 
                     misclassification_error_matrix[i,j,m] = testerr(clf.predict(XTest),Ytest)*weight_band
-<<<<<< HEAD
-<<<<<< HEAD
-D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
-D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
-_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    str = "Gaussian_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+
 
         ## The following is the same for any kernel
                 # α
@@ -201,7 +198,7 @@ end
                     clf.fit(XTrain, Ytrain)
 
                     misclassification_error_matrix[i,j,m] = testerr(clf.predict(XTest),Ytest)*weight_band
-                    str = "RBF_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    str = "Gaussian_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
         ## The following is the same for any kernel
                 # α

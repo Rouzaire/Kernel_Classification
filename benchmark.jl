@@ -1,9 +1,10 @@
 cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
 using Pkg; Pkg.activate("."); Pkg.instantiate();
-using Plots, SpecialFunctions, JLD, Dates,Distributed, LinearAlgebra, Distributions,MLJ
+using Plots, SpecialFunctions, JLD, Dates,Distributed, LinearAlgebra, Distributions
 pyplot() ; plot()
 using SpecialFunctions,Distributed,LinearAlgebra,Distributions,PyCall
 SV = pyimport("sklearn.svm")
+nplina = pyimport("numpy.linalg")
 
 include("function_definitions.jl")
 
@@ -18,35 +19,13 @@ mean(Ytrain)
 Xtest,Ytest,w = generate_TestSet(Ptest,dimension,Δ0)
 mean(Ytest)
 
-scatter([Xtrain[1,i] for i in 1:Ptrain],[Xtrain[2,i] for i in 1:Ptrain],label=nothing,camera=(30,70))
-scatter([Xtest[1,i] for i in 1:Ptest],[Xtest[2,i] for i in 1:Ptest],label=nothing,camera=(30,70))
+scatter([Xtrain[1,i] for i in 1:Ptrain],[Xtrain[2,i] for i in 1:Ptrain],legend=nothing,camera=(30,70))
+scatter([Xtest[1,i] for i in 1:Ptest],[Xtest[2,i] for i in 1:Ptest],legend=nothing,camera=(30,70))
 # xlabel!("x")
 # ylabel!("y")
 # title!("Distribution with Margin Δ0 = $Δ0")
 savefig("distrib_test.pdf")
 
-## First SVM tests
-svc_model = SVC(cost=1E10)
-svc = machine(svc_model, MLJ.table(Xtrain), Ytrain)
-fit!(svc)
-Ypred = predict(svc, Xtest)
-println("𝝐 = ",misclassification_rate(Ypred, Ytest))
-G = Gram(Xtrain,1/2)
-SVC(kernel="RadialBasis")
-
-
-
-## precomputed Kernel
-function my_kernel(X, Y)
-    return dot(X,Y')
-end
-d = 2
-Δ0 = 0
-Xtrain,Ytrain = generate_TrainSet(100,d,Δ0)
-Xtest,Ytest,weight_band = generate_TestSet(100,d,Δ0)
-clf = SV.SVC(C=1E10,cache_size=1000,kernel=my_kernel) # allocated cache (in MB)
-clf.fit(Xtrain,Ytrain)
-testerr(clf.predict(GramTest),Ytest)
 ##
 cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
 using Pkg; Pkg.activate("."); Pkg.instantiate();
@@ -112,11 +91,3 @@ rc = vcat(rc_plus,rc_minus)
 println("+ : ",mean(rc_plus)," ± ",std(rc_plus))
 println("- : ",mean(rc_minus)," ± ",std(rc_minus))
 println("Both : ",mean(rc)," ± ",std(rc))
-
-
-# ## G
-# u = rand(100)
-# G = Laplace_Kernel(u,u)
-# GG = G^2
-# invG = inv(G)
-# un = invG*G

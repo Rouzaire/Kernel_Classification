@@ -2,9 +2,8 @@ cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
 using Pkg; Pkg.activate("."); Pkg.instantiate();
 using Plots, SpecialFunctions, JLD, Dates,Distributed, LinearAlgebra, Distributions
 pyplot() ; plot()
-using SpecialFunctions,Distributed,LinearAlgebra,Distributions,PyCall
+using SpecialFunctions,Distributed,LinearAlgebra,Distributions,PyCall,BenchmarkTools
 SV = pyimport("sklearn.svm")
-nplina = pyimport("numpy.linalg")
 
 include("function_definitions.jl")
 
@@ -91,3 +90,4 @@ rc = vcat(rc_plus,rc_minus)
 println("+ : ",mean(rc_plus)," ± ",std(rc_plus))
 println("- : ",mean(rc_minus)," ± ",std(rc_minus))
 println("Both : ",mean(rc)," ± ",std(rc))
+    

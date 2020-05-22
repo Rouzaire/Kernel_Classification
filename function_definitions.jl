@@ -5,9 +5,9 @@
 ## Generation of data, uniformly on the d-dimensional unit-hypersphere (d=1 -> X lies on unit circle in R^2 // d=2 -> X lies on unit sphere in R^3)
     # Notation : Δ0 is the gap size bewteen 2 interfaces and SVband is the SV bandwidth
 
-@everywhere function generate_Y(X,Δ0)
+@everywhere function generate_Y(X::Array{Float64,2},Δ0::Float64)
     M = size(X)[2]
-    labels = zeros(M)
+    labels = zeros(Int,M)
     for i in 1:M
         if X[1,i] ≥ Δ0/2 labels[i] = + 1
         else             labels[i] = - 1
@@ -16,8 +16,8 @@
     return labels
 end
 
-@everywhere function generate_TrainSet(Ptrain,d,Δ0)
-    @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
+@everywhere function generate_TrainSet(Ptrain::Int,d::Int,Δ0::Float64)
+    # @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
 
     M = Int(ceil(2*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
     X = rand(MvNormal(zeros(d+1),I(d+1)),M)
@@ -33,10 +33,10 @@ end
 
 
 
-@everywhere function generate_TestSet(Ptest,d,Δ0)
+@everywhere function generate_TestSet(Ptest::Int,d::Int,Δ0::Float64)
     # 0<ξ<2 is the exponent governing the cusp (ξ=1 for Laplace kernel, ξ=2 for RBF/Gaussian kernel)
     # Note that ξ = min(2ν,2) for a kernel in the Matérn family
-    @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
+    # @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
 
     # Points will only be generated in this band, because beyond one can be sure that
         # they will be correctly classified. It has to be wide enough to be sure that
@@ -81,7 +81,7 @@ end
     return rc
 end
 ## Matérn Covariance functions
-@everywhere function Matérn(h,ν,σ=1,ρ=100) # Matérn kernel
+@everywhere function Matérn(h,ν::Float64,σ::Float64=1.0,ρ::Float64=100.0) # Matérn kernel
     ## h is the euclidian distance in real space R² (actual subspace = unit circle)
     ## ν (nu) the smoothness of the Matérn covariance function (here, usually ν = 0.5 to get a Laplace Kernel)
     ## ρ is the length scale. Here I impose a very large length scale
@@ -93,16 +93,24 @@ end
     end
 end
 
-@everywhere function Laplace_Kernel(X,Y)
-    ρ = 100 ; σ = 1
+@everywhere function GaussianKernel(h,σ::Float64=1.0,ρ::Float64=100)
+    return σ^2*exp(-h^2/2/ρ^2)
+end
+
+@everywhere function Kernel_Matrix(X::Array{Float64,2},Y::Array{Float64,2})
+    ρ = 100.0 ; σ = 1.0
     Px = size(X)[1] ; Py = size(Y)[1]
-    K = ones(Px,Py)
-    for i in 1:Px
-        for j in 1:Py
-            K[i,j] = σ^2*exp(-norm(X[i,:]-Y[j,:])/ρ)
+    K = ones(Float64,Px,Py)
+    if X == Y
+        for i in 1:Px , j in i+1:Py
+                K[i,j] = K[j,i] = Matérn(norm(X[i,:]-Y[j,:]),1/2)
+        end
+    else
+        for i in 1:Px , j in 1:Py
+                K[i,j] = Matérn(norm(X[i,:]-Y[j,:]),1/2)
         end
     end
-    return K' ## the adjoint is necessary to match the desired format of sklearn
+    return K ## the adjoint is necessary to match the desired format of sklearn
 end
 
 @everywhere function Run_fixed_dimension(PP,Δ,d,M=1) ## d=dimension is a integer passed in argument and the scan is over M and the vectors PP, Δ (gaps between interfaces)
@@ -129,10 +137,10 @@ end
                     # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
                     #
                     # clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
-                    # GramTrain = Laplace_Kernel(Xtrain,Xtrain)
+                    # GramTrain = Kernel_Matrix(Xtrain,Xtrain)
                     # clf.fit(GramTrain, Ytrain)
                     #
-                    # GramTest = Laplace_Kernel(Xtrain,Xtest)
+                    # GramTest = Kernel_Matrix(Xtrain,Xtest)
                     # misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
                     # global str = "Laplace_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
@@ -175,41 +183,41 @@ end
 
         for j in eachindex(dim)
             d = dim[j]
-            low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
-            # Ptest = Int(round((min(high,max(10*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
-            Ptest = 1000
+            low = 1E2 ; high = 1E3
+            Ptest = Int(round((min(high,max(Ptrain,low))))) # enforce low ≤ Ptest ≤ high
+            # Ptest = 1000
             println("SVM for P = $Ptrain , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
 
             for m in 1:M
                 ## If Kernel = Laplace
-                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
-                    #
-                    # clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
-                    # GramTrain = Laplace_Kernel(Xtrain,Xtrain)
-                    # clf.fit(GramTrain, Ytrain)
-                    #
-                    # GramTest = Laplace_Kernel(Xtrain,Xtest)
-                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
-                    # global str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
-
-                ## If Kernel = Gaussian (default kernel of the Python SVC machine)
                     Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
                     Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
 
-                    clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
-                    clf.fit(Xtrain, Ytrain)
+                    clf = SV.SVC(C=1E10,kernel=Kernel_Matrix,cache_size=1000) # allocated cache (in MB)
+                    # GramTrain = Kernel_Matrix(Xtrain,Xtrain)
+                    clf.fit(Xtrain', Ytrain)
 
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest),Ytest)*weight_band
-                    global str = "Gaussian_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    # GramTest = Kernel_Matrix(Xtrain,Xtest)
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
+                    global str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+
+                ## If Kernel = Gaussian (default kernel of the Python SVC machine)
+                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+                    #
+                    # clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
+                    # clf.fit(Xtrain', Ytrain)
+                    #
+                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
+                    # global str = "Gaussian_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
         ## The following is the same for any kernel
                 # α
-                    alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
-                    alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
-                # r_c
-                    sv = Xtrain[clf.support_ .+ 1]
-                    rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
+                #     alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
+                #     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
+                # # r_c
+                #     sv = Xtrain[clf.support_ .+ 1]
+                #     rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
             end # Realisations
         end # Δ0
     end # Ptrain

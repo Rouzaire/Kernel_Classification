@@ -131,6 +131,8 @@ end
                     #
                     # GramTest = Laplace_Kernel(Xtrain,Xtest)
                     # misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
+                    # str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+
                 ## If Kernel = Gaussian (default kernel of the Python SVC machine)
                     Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
                     Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
@@ -139,6 +141,7 @@ end
                     clf.fit(XTrain, Ytrain)
 
                     misclassification_error_matrix[i,j,m] = testerr(clf.predict(XTest),Ytest)*weight_band
+                    str = "RBF_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
         ## The following is the same for any kernel
                 # α
@@ -152,7 +155,6 @@ end
     end # Ptrain
 
     ## Save Data for later analysis
-    str = "D_"*string(d)*"_"*string(Dates.day(now()))
     JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix,"alpha_mean_matrix",alpha_mean_matrix,"alpha_std_matrix",alpha_std_matrix,"rc_mean_matrix",rc_mean_matrix,"rc_std_matrix",rc_std_matrix, "PP", PP, "Δ", Δ, "d", d, "M", M)
 end
 
@@ -185,6 +187,8 @@ end
                     #
                     # GramTest = Laplace_Kernel(Xtrain,Xtest)
                     # misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
+                    # str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+
                 ## If Kernel = Gaussian (default kernel of the Python SVC machine)
                     Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
                     Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
@@ -193,6 +197,7 @@ end
                     clf.fit(XTrain, Ytrain)
 
                     misclassification_error_matrix[i,j,m] = testerr(clf.predict(XTest),Ytest)*weight_band
+                    str = "RBF_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
         ## The following is the same for any kernel
                 # α
@@ -206,7 +211,6 @@ end
     end # Ptrain
 
     ## Save Data for later analysis
-    str = "Δ_"*string(Δ0)*"_"*string(Dates.day(now()))
     JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix,"alpha_mean_matrix",alpha_mean_matrix,"alpha_std_matrix",alpha_std_matrix,"rc_mean_matrix",rc_mean_matrix,"rc_std_matrix",rc_std_matrix, "PP", PP, "Δ", Δ0, "d", dim, "M", M)
 end
 

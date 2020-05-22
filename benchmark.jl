@@ -7,24 +7,23 @@ SV = pyimport("sklearn.svm")
 
 include("function_definitions.jl")
 
-Δ0 = 0.2
+Δ0 = 0.5
 Ptrain = Int(1E3)
 Ptest = Int(1E3)
-N = Ptrain + Ptest
-dimension = 2
+dimension = 1
 δ = Ptrain^(-1/dimension)
 
-X,weight_band = generate_X(Ptrain,Ptest,dimension,Δ0)
-Y = generate_Y(X,Δ0)
-mean(Y)
-Xtest,Ytest = extract_TestSet(X,Y,Ptest)
-Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
+Xtrain,Ytrain = generate_TrainSet(Ptrain,dimension,Δ0)
+mean(Ytrain)
+Xtest,Ytest,w = generate_TestSet(Ptest,dimension,Δ0)
+mean(Ytest)
 
-# scatter([X[i][1] for i in 1:N],[X[i][2] for i in 1:N],[X[i][3] for i in 1:N],label=nothing,camera=(30,70))
+scatter([Xtrain[1,i] for i in 1:Ptrain],[Xtrain[2,i] for i in 1:Ptrain],label=nothing,camera=(30,70))
+scatter([Xtest[1,i] for i in 1:Ptest],[Xtest[2,i] for i in 1:Ptest],label=nothing,camera=(30,70))
 # xlabel!("x")
 # ylabel!("y")
 # title!("Distribution with Margin Δ0 = $Δ0")
-# savefig("distrib_XX.pdf")
+savefig("distrib_test.pdf")
 
 ## First SVM tests
 svc_model = SVC(cost=1E10)
@@ -35,6 +34,19 @@ println("𝝐 = ",misclassification_rate(Ypred, Ytest))
 G = Gram(Xtrain,1/2)
 SVC(kernel="RadialBasis")
 
+
+
+## precomputed Kernel
+function my_kernel(X, Y)
+    return dot(X,Y')
+end
+d = 2
+Δ0 = 0
+Xtrain,Ytrain = generate_TrainSet(100,d,Δ0)
+Xtest,Ytest,weight_band = generate_TestSet(100,d,Δ0)
+clf = SV.SVC(C=1E10,cache_size=1000,kernel=my_kernel) # allocated cache (in MB)
+clf.fit(Xtrain,Ytrain)
+testerr(clf.predict(GramTest),Ytest)
 ##
 cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
 using Pkg; Pkg.activate("."); Pkg.instantiate();
@@ -108,5 +120,3 @@ println("Both : ",mean(rc)," ± ",std(rc))
 # GG = G^2
 # invG = inv(G)
 # un = invG*G
-
-##

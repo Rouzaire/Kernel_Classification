@@ -4,7 +4,7 @@ pyplot() ; plot()
 include("function_definitions.jl")
 
 ##
-dayy = "22" ; param = load("Data\\parameters_"*dayy*".jld")
+dayy = "22" ; param = load("Data\\Gaussian_Kernel\\parameters_"*dayy*".jld")
 PP = param["PP"]
 M  = param["M"]
 Δ  = param["Δ"]
@@ -22,14 +22,14 @@ rc_std_matrix                   = zeros(length(PP),length(Δ),length(dimensions)
 if parallelized_over == "Δ"
     for i in eachindex(Δ)
         str = "Δ_"*string(Δ[i])*"_"*dayy
-        misclassification_error_matrix[:,i,:,:] = load("Data\\"*str*".jld")["error"]
+        misclassification_error_matrix[:,i,:,:] = load("Data\\Gaussian_Kernel\\"*str*".jld")["error"]
         # alpha_mean_matrix[:,i,:,:] = load("Data\\"*str*".jld")["alpha_mean_matrix"] ; alpha_std_matrix[:,i,:,:] = load("Data\\"*str*".jld")["alpha_std_matrix"]
         # rc_mean_matrix[:,i,:,:] = load("Data\\"*str*".jld")["rc_mean_matrix"] ; rc_std_matrix[:,i,:,:] = load("Data\\"*str*".jld")["rc_std_matrix"]
     end
 elseif parallelized_over == "d"
     for i in eachindex(dimensions)
         str = "D_"*string(dimensions[i])*"_"*dayy
-        misclassification_error_matrix[:,:,i,:] = load("Data\\"*str*".jld")["error"]
+        misclassification_error_matrix[:,:,i,:] = load("Data\\Gaussian_Kernel\\"*str*".jld")["error"]
         # alpha_mean_matrix[:,:,i,:] = load("Data\\"*str*".jld")["alpha_mean_matrix"] ; alpha_std_matrix[:,:,i,:] = load("Data\\"*str*".jld")["alpha_std_matrix"]
         # rc_mean_matrix[:,:,i,:] = load("Data\\"*str*".jld")["rc_mean_matrix"] ; rc_std_matrix[:,:,i,:] = load("Data\\"*str*".jld")["rc_std_matrix"]
     end
@@ -43,16 +43,12 @@ rc_mean_std     = std(rc_mean_matrix,dims=4)
 
 s = cut_zeros(error_avg)
 
-ξ = 1 # 1 = Laplace # 2 = Gaussian/RBF
+ξ = 2 # 1 = Laplace # 2 = Gaussian/RBF
 
 β = (dimensions .- 1 .+ ξ)./(3dimensions .- 3 .+ ξ)
 pow_̄α = 2ξ./(3dimensions .- 3 .+ ξ)
 pow_rc = -2 ./(3dimensions .- 3 .+ ξ)
 
-
-βsphere = (2dimensions .- 1 .+ 2ξ)./(dimensions)/(2ξ+3)
-pow_̄α_sphere = 2ξ./(3dimensions .- 3 .+ ξ)
-pow_rc_sphere = -2 ./(3dimensions .- 3 .+ ξ)
 
 ## Without margin
 # coeff = [0.5,0.4,0.3,0.5,0.5]/5
@@ -93,7 +89,7 @@ for j in 1:length(dimensions)
     for i in 1:length(Δ)
         plot!(PP[1:s[i,j]],smooth(error_avg[1:s[i,j],i,j,1]),ribbon=factor*error_std[1:s[i,j],i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
     end
-    savefig("Figures\\departure_d"*string(dimensions[j])*".pdf")
+    savefig("Figures\\Gaussian_Kernel\\departure_d"*string(dimensions[j])*".pdf")
 end
 
 factor = 0.0
@@ -103,7 +99,7 @@ for j in 1:length(dimensions)
         plot!(PP[1:s[i,j]],log10.(smooth(error_avg[1:s[i,j],i,j,1])),ribbon=factor*error_std[1:s[i,j],i,j,1],color=i,label="Δ0 = $(Δ[i])")
         plot!(PP[1:s[i,j]],-Δ[i]*1E-2*PP[1:s[i,j]] .- 2.5,line=:dash,color=i)
     end
-    savefig("Figures\\testdeparture_d"*string(dimensions[j])*".pdf")
+    savefig("Figures\\Gaussian_Kernel\\testdeparture_d"*string(dimensions[j])*".pdf")
 end
 
 plot()

@@ -6,10 +6,11 @@
     # Notation : Δ0 is the gap size bewteen 2 interfaces and SVband is the SV bandwidth
 
 @everywhere function generate_Y(X,Δ0)
-    labels = zeros(length(X))
-    for i in eachindex(X)
-        if X[i][1] ≥ Δ0/2 labels[i] = + 1
-        else              labels[i] = - 1
+    M = size(X)[2]
+    labels = zeros(M)
+    for i in 1:M
+        if X[1,i] ≥ Δ0/2 labels[i] = + 1
+        else             labels[i] = - 1
         end
     end
     return labels
@@ -20,14 +21,17 @@ end
 
     M = Int(ceil(2*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
     X = rand(MvNormal(zeros(d+1),I(d+1)),M)
-    normX = [norm(X[:,i]) for i in 1:M]
-    X_normalized = [(X[:,i] ./ normX[i]) for i in 1:M]
-    X_normalized = X_normalized[[Δ0/2 ≤ abs(X_normalized[i][1]) for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
-    @assert length(X_normalized) ≥ Ptrain
-    X_normalized = X_normalized[1:Ptrain]
+    for m in 1:M
+        X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
+    end
+    X = X[:,[Δ0/2 ≤ abs(X[1,i]) for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
+    @assert length(X) ≥ Ptrain
+    X = X[:,1:Ptrain]
 
-    return X_normalized , generate_Y(X_normalized,Δ0)
+    return X , generate_Y(X,Δ0)
 end
+
+
 
 @everywhere function generate_TestSet(Ptest,d,Δ0)
     # 0<ξ<2 is the exponent governing the cusp (ξ=1 for Laplace kernel, ξ=2 for RBF/Gaussian kernel)
@@ -42,17 +46,16 @@ end
     weight_band = 2SVband/(π - Δ0) # fraction of the surface occupied by this band (to weight the final result)
 
     M = Int(ceil(2*Ptest/weight_band/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
-
     X = rand(MvNormal(zeros(d+1),I(d+1)),M)
-    normX = [norm(X[:,i]) for i in 1:M]
-    X_normalized = [(X[:,i] ./ normX[i]) for i in 1:M]
-    X_normalized = X_normalized[[Δ0/2 ≤ abs(X_normalized[i][1]) ≤ Δ0/2 + SVband for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
-    Nkept = length(X_normalized)
-    @assert Nkept ≥ Ptest
-    X_normalized = X_normalized[1:Ptest]
+    for m in 1:M
+        X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
+    end
+    X = X[:,[Δ0/2 ≤ abs(X[1,i]) ≤ Δ0/2 + SVband for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
+    @assert length(X) ≥ Ptest
+    X = X[:,1:Ptest]
 
     # println("N = $Ptest ,  Actually generated = $M , Wasted = $((Nkept-Ptest))")
-    return X_normalized , generate_Y(X_normalized,Δ0) , weight_band
+    return X , generate_Y(X,Δ0) , weight_band
 end
 
 @everywhere function rc(sv,Δ0) ## returns the mean minimum distance separating support vectors (SV)
@@ -117,7 +120,7 @@ end
             Δ0 = Δ[j]
             low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
             # Ptest = Int(round((min(high,max(5*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
-            if Δ0 == 0 Ptest = 1000 else Ptest = 1000 end
+            Ptest = 1000
 
             println("SVM for P = $Ptrain, Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
@@ -131,17 +134,17 @@ end
                     #
                     # GramTest = Laplace_Kernel(Xtrain,Xtest)
                     # misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
-                    # str = "Laplace_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    # global str = "Laplace_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
                 ## If Kernel = Gaussian (default kernel of the Python SVC machine)
                     Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
                     Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
 
                     clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
-                    clf.fit(XTrain, Ytrain)
+                    clf.fit(Xtrain, Ytrain)
 
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(XTest),Ytest)*weight_band
-                    str = "Gaussian_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest),Ytest)*weight_band
+                    global str = "Gaussian_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
 
         ## The following is the same for any kernel
@@ -188,17 +191,17 @@ end
                     #
                     # GramTest = Laplace_Kernel(Xtrain,Xtest)
                     # misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
-                    # str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    # global str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
                 ## If Kernel = Gaussian (default kernel of the Python SVC machine)
                     Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
                     Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
 
                     clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
-                    clf.fit(XTrain, Ytrain)
+                    clf.fit(Xtrain, Ytrain)
 
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(XTest),Ytest)*weight_band
-                    str = "Gaussian_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest),Ytest)*weight_band
+                    global str = "Gaussian_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
         ## The following is the same for any kernel
                 # α

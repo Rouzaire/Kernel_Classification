@@ -2,65 +2,86 @@
 @everywhere dist(x,y) = norm(x-y) # euclidien distance
 @everywhere testerr(pred,Y) = mean(pred .!= Y)
 
-## Generate x components of the whole dataset, uniformly distributed on a hypersphere of dimension d=D-1.
-    # for instance, in d=1, X = unit circle in R^2
-    # for instance, in d=2, X = unit sphere in R^3
-@everywhere function generate_X(Ptrain,Ptest,dimension,Δ0=0.0)
-    @assert isinteger(dimension) ; @assert dimension > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
-    N = Int(Ptrain + Ptest)
-    if Δ0 == 0
-        X = rand(MvNormal(zeros(dimension+1),I(dimension+1)),N)
-        normX = [norm(X[:,i]) for i in 1:N]
-        X_normalized = [(X[:,i] ./ normX[i]) for i in 1:N]
-    else
-        Ntilde = Int(ceil(2N/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
-        X = rand(MvNormal(zeros(dimension+1),I(dimension+1)),Ntilde)
-        M = size(X)[2]
-        normX = [norm(X[:,i]) for i in 1:M]
-        X_normalized = [(X[:,i] ./ normX[i]) for i in 1:M]
-        X_normalized = X_normalized[[abs(X_normalized[i][1]) ≥ Δ0/2 for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
-        Nkept = length(X_normalized)
-        X_normalized = X_normalized[1:N] # keep only the N first datapoint
-    end
-    # println("N = $N ,  Actually generated = $Ntilde , Thrown away = $(Ntilde-Nkept)")
-    return X_normalized
-end
+## Generation of data, uniformly on the d-dimensional unit-hypersphere (d=1 -> X lies on unit circle in R^2 // d=2 -> X lies on unit sphere in R^3)
+    # Notation : Δ0 is the gap size bewteen 2 interfaces and SVband is the SV bandwidth
 
-@everywhere function generate_Y(X,Δ0=0.0)
-    labels = zeros(length(X))
-    for i in eachindex(X)
-        if X[i][1] ≥ Δ0/2 labels[i] = + 1
-        else labels[i] = - 1
+@everywhere function generate_Y(X::Array{Float64,2},Δ0::Float64)
+    M = size(X)[2]
+    labels = zeros(Int,M)
+    for i in 1:M
+        if X[1,i] ≥ Δ0/2 labels[i] = + 1
+        else             labels[i] = - 1
         end
     end
     return labels
 end
 
-# The way these functions are defined ensure the non-overlapping of the testing and training sets
-@everywhere function extract_TrainSet(X,Y,Ptrain)
-    dimension = length(X[1])
-    Xtrain = zeros(Ptrain,dimension) ; Ytrain = zeros(Ptrain)
-    for i in 1:Ptrain
-        Xtrain[i,:] = X[i]
-        Ytrain[i] = Y[i]
+@everywhere function generate_TrainSet(Ptrain::Int,d::Int,Δ0::Float64)
+    # @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
+
+    M = Int(ceil(2*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
+    X = rand(MvNormal(zeros(d+1),I(d+1)),M)
+    for m in 1:M
+        X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
     end
-    return Xtrain,Ytrain
-    # return Xtrain,categorical(Ytrain)
+    X = X[:,[Δ0/2 ≤ abs(X[1,i]) for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
+    @assert length(X) ≥ Ptrain
+    X = X[:,1:Ptrain]
+
+    return X , generate_Y(X,Δ0)
 end
 
-@everywhere function extract_TestSet(X,Y,Ptest)
-    dimension = length(X[1])
-    Xtest = zeros(Ptest,dimension) ; Ytest = zeros(Ptest)
-    for i in 1:Ptest
-        Xtest[i,:] = X[end-i+1]
-        Ytest[i] = Y[end-i+1]
+
+
+@everywhere function generate_TestSet(Ptest::Int,d::Int,Δ0::Float64)
+    # 0<ξ<2 is the exponent governing the cusp (ξ=1 for Laplace kernel, ξ=2 for RBF/Gaussian kernel)
+    # Note that ξ = min(2ν,2) for a kernel in the Matérn family
+    # @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
+
+    # Points will only be generated in this band, because beyond one can be sure that
+        # they will be correctly classified. It has to be wide enough to be sure that
+        # all misclassified points are contained and thin enough to save memory later
+        # in the code
+    SVband = 0.2
+    weight_band = 2SVband/(π - Δ0) # fraction of the surface occupied by this band (to weight the final result)
+
+    M = Int(ceil(2*Ptest/weight_band/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
+    X = rand(MvNormal(zeros(d+1),I(d+1)),M)
+    for m in 1:M
+        X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
     end
-    return Xtest,Ytest
-    # return Xtest,categorical(Ytest)
+    X = X[:,[Δ0/2 ≤ abs(X[1,i]) ≤ Δ0/2 + SVband for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
+    @assert length(X) ≥ Ptest
+    X = X[:,1:Ptest]
+
+    # println("N = $Ptest ,  Actually generated = $M , Wasted = $((Nkept-Ptest))")
+    return X , generate_Y(X,Δ0) , weight_band
 end
 
+@everywhere function rc(sv,Δ0) ## returns the mean minimum distance separating support vectors (SV)
+    svy = Bool.((generate_Y(sv,Δ0) .+ 1)/2)
+    sv_plus  = sv[svy]
+    sv_minus = sv[.!svy]
+    rc_plus  = compute_rc(sv_plus)
+    rc_minus = compute_rc(sv_minus)
+    rc = vcat(rc_plus,rc_minus)
+    return mean(rc),std(rc)
+end
+
+@everywhere function compute_rc(sv) # auxillary function that returns a list of the minimal distance to all other SV for each SV
+    rc  = zeros(length(sv))
+    for i in eachindex(sv)
+        dist_to_all_other_SV = [norm(sv[i]-sv[j]) for j in eachindex(sv)]
+        if length(dist_to_all_other_SV) > 1
+            rc[i] = sort(dist_to_all_other_SV)[2]
+        else
+            rc[i] = -1 ## impossible value, meaning that there is only one (or zero) SV, hence the distance to nearest SV is not defined
+        end
+    end
+    return rc
+end
 ## Matérn Covariance functions
-@everywhere function Matérn(h,ν,σ=1,ρ=100) # Matérn kernel
+@everywhere function Matérn(h,ν::Float64,σ::Float64=1.0,ρ::Float64=100.0) # Matérn kernel
     ## h is the euclidian distance in real space R² (actual subspace = unit circle)
     ## ν (nu) the smoothness of the Matérn covariance function (here, usually ν = 0.5 to get a Laplace Kernel)
     ## ρ is the length scale. Here I impose a very large length scale
@@ -72,51 +93,172 @@ end
     end
 end
 
-@everywhere function Laplace_Kernel(X,Y)
-    ρ = 100 ; σ = 1
-    Px = size(X)[1] ; Py = size(Y)[1]
-    K = ones(Px,Py)
-    for i in 1:Px
-        for j in 1:Py
-            K[i,j] = σ^2*exp(-norm(X[i,:]-Y[j,:])/ρ)
-        end
-    end
-    return K' ## the adjoint is necessary to match the desired format of sklearn
+@everywhere function GaussianKernel(h,σ::Float64=1.0,ρ::Float64=100)
+    return σ^2*exp(-h^2/2/ρ^2)
 end
 
-@everywhere function Run(PP,Δ,d,M=1)
-    ## 3D Matrix to store data // dim 1 : PP //  dim 2 : Δ // dim 3 : Realisations
+@everywhere function Kernel_Matrix(X::Array{Float64,2},Y::Array{Float64,2})
+    ρ = 100.0 ; σ = 1.0
+    Px = size(X)[1] ; Py = size(Y)[1]
+    K = ones(Float64,Px,Py)
+    if X == Y
+        for i in 1:Px , j in i+1:Py
+                K[i,j] = K[j,i] = Matérn(norm(X[i,:]-Y[j,:]),1/2)
+        end
+    else
+        for i in 1:Px , j in 1:Py
+                K[i,j] = Matérn(norm(X[i,:]-Y[j,:]),1/2)
+        end
+    end
+    return K ## the adjoint is necessary to match the desired format of sklearn
+end
+
+@everywhere function Run_fixed_dimension(PP,Δ,d,M=1) ## d=dimension is a integer passed in argument and the scan is over M and the vectors PP, Δ (gaps between interfaces)
+    ## 3D Matrix to store data // dim 1 : PP //  dim 2 : margin // dim 3 : Realisations
     misclassification_error_matrix  = NaN*zeros(length(PP),length(Δ),M)
+    alpha_mean_matrix  = NaN*zeros(length(PP),length(Δ),M)
+    alpha_std_matrix   = NaN*zeros(length(PP),length(Δ),M)
+    rc_mean_matrix     = NaN*zeros(length(PP),length(Δ),M)
+    rc_std_matrix      = NaN*zeros(length(PP),length(Δ),M)
 
     for i in eachindex(PP)
         Ptrain = PP[i]
 
         for j in eachindex(Δ)
             Δ0 = Δ[j]
-            if Δ0 == 0 low = 1E3 ; high = 5E4
-            else       low = 1E3 ; high = 1E5
-            end
-            Ptest = Int(min(high,max(Ptrain^2,low))) # enforce low ≤ Ptest ≤ high
-            N = Ptrain + Ptest
+            low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
+            # Ptest = Int(round((min(high,max(5*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
+            Ptest = 1000
 
-            println("SVM for P = $Ptrain , Ptest = 1E$(Int(round(log10(Ptest)))) , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
+            println("SVM for P = $Ptrain, Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
+                ## If Kernel = Laplace
+                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+                    #
+                    # clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
+                    # GramTrain = Kernel_Matrix(Xtrain,Xtrain)
+                    # clf.fit(GramTrain, Ytrain)
+                    #
+                    # GramTest = Kernel_Matrix(Xtrain,Xtest)
+                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
+                    # global str = "Laplace_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
-                X             = generate_X(Ptrain,Ptest,d,Δ0)
-                Y             = generate_Y(X,Δ0)
-                Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
-                Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
+                ## If Kernel = Gaussian (default kernel of the Python SVC machine)
+                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+                    #
+                    # clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
+                    # clf.fit(Xtrain, Ytrain)
+                    #
+                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest),Ytest)*weight_band
+                    # global str = "Gaussian_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
-                clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
-                GramTrain = Laplace_Kernel(Xtrain,Xtrain)
-                clf.fit(GramTrain, Ytrain)
-                GramTest = Laplace_Kernel(Xtrain,Xtest)
 
-                misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)
+        ## The following is the same for any kernel
+                # α
+                    alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
+                    alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
+                # r_c
+                    sv = Xtrain[clf.support_ .+ 1]
+                    rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
             end # Realisations
         end # Δ0
     end # Ptrain
 
     ## Save Data for later analysis
-    JLD.save("Data\\"*string(d)*"D_"*string(Dates.day(now()))*".jld", "error", misclassification_error_matrix, "PP", PP, "Δ", Δ, "d", d, "M", M)
+    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix,"alpha_mean_matrix",alpha_mean_matrix,"alpha_std_matrix",alpha_std_matrix,"rc_mean_matrix",rc_mean_matrix,"rc_std_matrix",rc_std_matrix, "PP", PP, "Δ", Δ, "d", d, "M", M)
+end
+
+@everywhere function Run_fixed_delta(PP,Δ0,dim,M=1) ## Δ0 is a scalar passed in argument and the scan is over M and the vectors PP, dim
+    ## 3D Matrix to store data // dim 1 : PP //  dim 2 : dimensions // dim 3 : Realisations
+    misclassification_error_matrix  = NaN*zeros(length(PP),length(dim),M)
+    alpha_mean_matrix  = NaN*zeros(length(PP),length(dim),M)
+    alpha_std_matrix   = NaN*zeros(length(PP),length(dim),M)
+    rc_mean_matrix     = NaN*zeros(length(PP),length(dim),M)
+    rc_std_matrix      = NaN*zeros(length(PP),length(dim),M)
+
+    for i in eachindex(PP)
+        Ptrain = PP[i]
+
+        for j in eachindex(dim)
+            d = dim[j]
+            low = 1E2 ; high = 1E3
+            Ptest = Int(round((min(high,max(Ptrain,low))))) # enforce low ≤ Ptest ≤ high
+            # Ptest = 1000
+            println("SVM for P = $Ptrain , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
+
+            for m in 1:M
+                ## If Kernel = Laplace
+                    Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+
+                    clf = SV.SVC(C=1E10,kernel=Kernel_Matrix,cache_size=1000) # allocated cache (in MB)
+                    # GramTrain = Kernel_Matrix(Xtrain,Xtrain)
+                    clf.fit(Xtrain', Ytrain)
+
+                    # GramTest = Kernel_Matrix(Xtrain,Xtest)
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
+                    global str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+
+                ## If Kernel = Gaussian (default kernel of the Python SVC machine)
+                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+                    #
+                    # clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
+                    # clf.fit(Xtrain', Ytrain)
+                    #
+                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
+                    # global str = "Gaussian_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+
+        ## The following is the same for any kernel
+                # α
+                #     alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
+                #     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
+                # # r_c
+                #     sv = Xtrain[clf.support_ .+ 1]
+                #     rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
+            end # Realisations
+        end # Δ0
+    end # Ptrain
+
+    ## Save Data for later analysis
+    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix,"alpha_mean_matrix",alpha_mean_matrix,"alpha_std_matrix",alpha_std_matrix,"rc_mean_matrix",rc_mean_matrix,"rc_std_matrix",rc_std_matrix, "PP", PP, "Δ", Δ0, "d", dim, "M", M)
+end
+
+@everywhere function Run(parallelized_over,args...)
+    @assert parallelized_over in ["d","Δ"] println("Choose the function name among \"PP\",\"d\",\"Δ\".")
+    if     parallelized_over == "d" pmap(Run_fixed_dimension,args...)
+    elseif parallelized_over == "Δ" pmap(Run_fixed_delta,args...)
+    end
+end
+
+## Functions used for data analysis
+@everywhere function smooth(X) ## for smoother plots
+    tmp = copy(X)
+    coeff = [1,2,1]
+    coeff = coeff./sum(coeff)
+    @assert isodd(length(coeff))
+    s = Int(floor(length(coeff)/2))
+    for i in 1+s:length(tmp)-s
+        tmp[i] = X[i-s:i+s]'*coeff
+    end
+    return tmp
+end
+
+@everywhere function cut_zeros(error_avg) # to cut away data that is zeros
+    length_PP  = size(error_avg)[1]
+    length_gap = size(error_avg)[2]
+    length_dim = size(error_avg)[3]
+    s = zeros(length_gap,length_dim)
+    for i in 1:length_gap
+        for j in 1:length_dim
+            if findfirst(iszero,error_avg[:,i,j,1]) == nothing
+                s[i,j] = length_PP
+            else
+                s[i,j] = findfirst(iszero,error_avg[:,i,j,1]) - 1
+            end
+        end
+    end
+    return Int.(s)
 end

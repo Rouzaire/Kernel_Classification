@@ -190,16 +190,16 @@ end
 
             for m in 1:M
                 ## If Kernel = Laplace
-                    Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
-
-                    clf = SV.SVC(C=1E10,kernel=Kernel_Matrix,cache_size=1000) # allocated cache (in MB)
-                    # GramTrain = Kernel_Matrix(Xtrain,Xtrain)
-                    clf.fit(Xtrain', Ytrain)
-
-                    # GramTest = Kernel_Matrix(Xtrain,Xtest)
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
-                    global str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+                    #
+                    # clf = SV.SVC(C=1E10,kernel=Kernel_Matrix,cache_size=1000) # allocated cache (in MB)
+                    # # GramTrain = Kernel_Matrix(Xtrain,Xtrain)
+                    # clf.fit(Xtrain', Ytrain)
+                    #
+                    # # GramTest = Kernel_Matrix(Xtrain,Xtest)
+                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
+                    # global str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
                 ## If Kernel = Gaussian (default kernel of the Python SVC machine)
                     # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
@@ -213,11 +213,11 @@ end
 
         ## The following is the same for any kernel
                 # α
-                #     alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
-                #     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
-                # # r_c
-                #     sv = Xtrain[clf.support_ .+ 1]
-                #     rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
+                    alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
+                    alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
+                # r_c
+                    sv = Xtrain[clf.support_ .+ 1]
+                    rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
             end # Realisations
         end # Δ0
     end # Ptrain

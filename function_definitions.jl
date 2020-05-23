@@ -145,14 +145,14 @@ end
                     # global str = "Laplace_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
                 ## If Kernel = Gaussian (default kernel of the Python SVC machine)
-                    Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
-
-                    clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
-                    clf.fit(Xtrain, Ytrain)
-
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest),Ytest)*weight_band
-                    global str = "Gaussian_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+                    #
+                    # clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
+                    # clf.fit(Xtrain, Ytrain)
+                    #
+                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest),Ytest)*weight_band
+                    # global str = "Gaussian_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
 
         ## The following is the same for any kernel

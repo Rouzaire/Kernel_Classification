@@ -4,16 +4,16 @@ cd("D:\\Documents\\Ecole\\EPFL\\Internship_2019_ML\\Kernel Classification SVM")
 
 parallelized_over = "Δ" # change accordingly [PP for i in eachindex(...)] and addprocs
 Δ = [0.005,0.01,0.02,0.03,0.05,0.1]
-PP = unique(Int.(round.(10.0 .^range(log10(20),stop=log10(1E4),length=50))))
+PP = unique(Int.(round.(10.0 .^range(log10(20),stop=log10(5E3),length=50))))
 dimensions = [2,3,10]
-M = 30
+M = 25
 
 ## Values for a first round (to precompile the code)
 # parallelized_over = "Δ" # change accordingly [PP for i in eachindex(...)] and addprocs
-# Δ = [0.005,0.01,0.02,0.03,0.05,0.1]
-# PP = unique(Int.(round.(10.0 .^range(log10(20),stop=log10(5E3),length=50))))
+# Δ = [0.01,0.02,0.03,0.05,0.1]
+# PP = unique(Int.(round.(10.0 .^range(log10(20),stop=log10(5E3),length=5))))
 # dimensions = [2]
-# M = 10
+# M = 1
 
 using Distributed
 addprocs(min(6,length(Δ)))

@@ -47,8 +47,6 @@ for i in eachindex(PP)
     Ptrain = PP[i]
     X,weight_band = generate_X(Ptrain,Ptest,d,Δ)
     Y             = generate_Y(X,Δ)
-    Xtest,Ytest   = extract_TestSet(X,Y,Ptest)
-    Xtrain,Ytrain = extract_TrainSet(X,Y,Ptrain)
 
     clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=800) # 800 MB allocated cache
     GramTrain = Laplace_Kernel(Xtrain,Xtrain)
@@ -72,22 +70,22 @@ for i in eachindex(PP)
     # alpha_avg[i] = mean(abs.(clf.dual_coef_))
 
 end # Ptrain
-misclassification_error_matrix
-println(length(coeff_SV))
-plot(box=true,xlabel="log10(SV coefficients)",ylabel="Count")
-histogram!(log10.(abs.(coeff_SV)),yaxis=(:log10),label="")
-savefig("Figures\\CoeffSV.pdf")
 
-## Compute rc
-sv = X[clf.support_ .+ 1]
-svy = Bool.((generate_Y(sv) .+ 1)/2)
-sv_plus = sv[svy]
-sv_minus = sv[.!svy]
 
-rc_plus  = [sort([norm(sv_plus[i]-sv_plus[j]) for j in eachindex(sv_plus)])[2] for i in eachindex(sv_plus)]
-rc_minus = [sort([norm(sv_minus[i]-sv_minus[j]) for j in eachindex(sv_minus)])[2] for i in eachindex(sv_minus)]
-rc = vcat(rc_plus,rc_minus)
-println("+ : ",mean(rc_plus)," ± ",std(rc_plus))
-println("- : ",mean(rc_minus)," ± ",std(rc_minus))
-println("Both : ",mean(rc)," ± ",std(rc))
-    
+## Compute rc and alpha
+Ptrain = 100; Ptest = 100
+d = 2
+Δ0= 0.0
+Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+
+clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
+clf.fit(Xtrain', Ytrain)
+sum(clf.dual_coef_)
+
+# α
+alpha_mean_matrix = mean(abs.(clf.dual_coef_))
+alpha_std_matrix  = std(abs.(clf.dual_coef_))
+# r_c
+sv = Xtrain[:,clf.support_ .+ 1]
+rc_mean_matrix,rc_std_matrix= rc(sv,Δ0)

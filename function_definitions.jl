@@ -209,7 +209,7 @@ end
                     Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
                     Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
 
-                    ρ = 100 # scale
+                    ρ = 100 # scale >> typical width = 1 (variance of the distrib of data for Normal(Hypercube) of Unif(Hypersphere))
                     clf = SV.SVC(C=1E10,gamma=1.0/(2*ρ^2),cache_size=1000) # allocated cache (in MB)
                     clf.fit(Xtrain',Ytrain)
 

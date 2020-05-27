@@ -81,45 +81,56 @@ pow_rc = -2 ./(3dimensions .- 3 .+ ξ)
 # savefig("Figures\\0test_error_gap.pdf")
 
 ## Investigate the departure from powerlaw
-# factor = 0.1
-# for j in 1:length(dimensions)
-#     p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
-#     plot!(PP,0.3*PP .^β[j],line=:dash,axis=:log,color=:black,label="No Gap")
-#     for i in 1:length(Δ)
-#         plot!(PP[1:s[i,j]],smooth(error_avg[1:s[i,j],i,j,1]),ribbon=factor*error_std[1:s[i,j],i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
-#     end
-#     savefig("Figures\\Gaussian_Kernel\\departure_d"*string(dimensions[j])*".pdf")
-#     savefig("Figures\\Gaussian_Kernel\\departure_d"*string(dimensions[j])*".png")
-# end
+factor = 0.1
+for j in 1:length(dimensions)
+    p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+    plot!(PP,0.3*PP .^β[j],line=:dash,axis=:log,color=:black,label="No Gap")
+    for i in 1:length(Δ)
+        plot!(PP[1:s[i,j]],smooth(error_avg[1:s[i,j],i,j,1]),ribbon=factor*error_std[1:s[i,j],i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
+    end
+    # savefig("Figures\\Gaussian_Kernel\\departure_d"*string(dimensions[j])*".pdf")
+    savefig("Figures\\Gaussian_Kernel\\departure_d"*string(dimensions[j])*"_cube")
+end
 
-# factor = 0.0
-# for j in 1:length(dimensions)
-#     p = plot(box=true,legend=nothing,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
-#     for i in 1:length(Δ)
-#         plot!(PP[1:s[i,j]],log10.(smooth(error_avg[1:s[i,j],i,j,1])),ribbon=factor*error_std[1:s[i,j],i,j,1],color=i,label="Δ0 = $(Δ[i])")
-#         plot!(PP[30:s[i,j]],-(Δ[i]*1E-2)^(1)*PP[30:s[i,j]] .- 2.1,line=:dash,color=i)
-#     end
-#     # ylims!((-5,-1))
-#     savefig("Figures\\Gaussian_Kernel\\testdeparture_d"*string(dimensions[j])*".pdf")
-#     savefig("Figures\\Gaussian_Kernel\\testdeparture_d"*string(dimensions[j])*".png")
-# end
+factor = 0.0
+for j in 1:length(dimensions)
+    p = plot(box=true,legend=nothing,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+    for i in 1:length(Δ)
+        plot!(PP[1:s[i,j]],log10.(smooth(error_avg[1:s[i,j],i,j,1])),ribbon=factor*error_std[1:s[i,j],i,j,1],color=i,label="Δ0 = $(Δ[i])")
+        plot!(PP[30:s[i,j]],-(Δ[i]*1E-2)^(1)*PP[30:s[i,j]] .- 2.1,line=:dash,color=i)
+    end
+    # ylims!((-5,-1))
+    # savefig("Figures\\Gaussian_Kernel\\testdeparture_d"*string(dimensions[j])*".pdf")
+    savefig("Figures\\Gaussian_Kernel\\testdeparture_d"*string(dimensions[j])*"_cube")
+end
 
 
 ## Investigation
 for j in 1:length(dimensions)
-    p = plot(box=true,legend=:topright,xlabel="P",ylabel="̄α avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+    p = plot(box=true,legend=:bottomright,xlabel="P",ylabel="̄α avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
     for i in 1:length(Δ)
         plot!(PP,smooth(alpha_mean_avg[:,i,j,1]),ribbon=0*alpha_mean_std[:,i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i]) , Slope $(round(pow_̄α[j],digits=2))")
-        plot!(PP,PP .^ (pow_̄α[j]),line=:dash,axis=:log,color=i,label="")
+        plot!(PP,1e5*PP .^ (pow_̄α[j]),line=:dash,axis=:log,color=i,label="")
     end
-    savefig("Figures\\Gaussian_Kernel\\aaalphabar_d"*string(dimensions[j]))
+    savefig("Figures\\Gaussian_Kernel\\alphabar_d"*string(dimensions[j])*"_cube")
 end
 
 for j in 1:length(dimensions)
-    p = plot(box=true,legend=:best,xlabel="P",ylabel="̄α avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+    p = plot(box=true,legend=:best,xlabel="P",ylabel="̄r_c avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
     for i in 1:length(Δ)
         plot!(PP,smooth(rc_mean_matrix[:,i,j,1]),ribbon=0*alpha_mean_std[:,i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i]) , Slope $(round(pow_̄α[j],digits=2))")
         plot!(PP,3*PP .^ (pow_rc[j]),line=:dash,axis=:log,color=i,label="")
     end
-    savefig("Figures\\Gaussian_Kernel\\aarc_d"*string(dimensions[j]))
+    savefig("Figures\\Gaussian_Kernel\\rc_d"*string(dimensions[j])*"_cube")
 end
+
+
+xx = 1:10000
+plot(xx,0.1 * xx .^ -0.5,axis=:log)
+plot!(xx,xx .^ -0.5 .* exp.(-0.1/*xx),axis=:log)
+
+dx = 1e-3
+xx = 0:dx:0.5
+plot(xx,exp.(xx) .- 1 - xx)
+
+    

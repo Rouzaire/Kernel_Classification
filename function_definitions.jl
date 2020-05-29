@@ -1,6 +1,9 @@
 ## Some basic functions
-@everywhere dist(x,y) = norm(x-y) # euclidien distance
+# @everywhere dist(x,y) = norm(x-y) # euclidien distance
 @everywhere testerr(pred,Y) = mean(pred .!= Y)
+@everywhere NaNmean(x) = mean(filter(!isnan,x))
+@everywhere NaNstd(x)  = std(filter(!isnan,x))
+
 
 ## Generation of data, uniformly on the d-dimensional unit-hypersphere (d=1 -> X lies on unit circle in R^2 // d=2 -> X lies on unit sphere in R^3)
     # Notation : Δ0 is the gap size bewteen 2 interfaces and SVband is the SV bandwidth
@@ -21,9 +24,9 @@ end
 
     M = Int(ceil(2*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
     X = rand(MvNormal(zeros(d+1),I(d+1)),M)
-    for m in 1:M
-        X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
-    end
+    # for m in 1:M
+    #     X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
+    # end
     X = X[:,[Δ0/2 ≤ abs(X[1,i]) for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
     @assert length(X) ≥ Ptrain
     X = X[:,1:Ptrain]
@@ -47,9 +50,9 @@ end
 
     M = Int(ceil(2*Ptest/weight_band/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
     X = rand(MvNormal(zeros(d+1),I(d+1)),M)
-    for m in 1:M
-        X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
-    end
+    # for m in 1:M
+    #     X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
+    # end
     X = X[:,[Δ0/2 ≤ abs(X[1,i]) ≤ Δ0/2 + SVband for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
     @assert length(X) ≥ Ptest
     X = X[:,1:Ptest]
@@ -58,24 +61,23 @@ end
     return X , generate_Y(X,Δ0) , weight_band
 end
 
-@everywhere function rc(sv,Δ0) ## returns the mean minimum distance separating support vectors (SV)
+@everywhere function rc(sv::Array{Float64,2},Δ0) ## returns the mean minimum distance separating support vectors (SV)
+    ## sv is a (dimension x numberSV) matrix
     svy = Bool.((generate_Y(sv,Δ0) .+ 1)/2)
-    sv_plus  = sv[svy]
-    sv_minus = sv[.!svy]
+    sv_plus  = sv[:,svy]
+    sv_minus = sv[:,.!svy]
     rc_plus  = compute_rc(sv_plus)
     rc_minus = compute_rc(sv_minus)
     rc = vcat(rc_plus,rc_minus)
-    return mean(rc),std(rc)
+    return NaNmean(rc),NaNstd(rc) # filters out NaN values
 end
 
-@everywhere function compute_rc(sv) # auxillary function that returns a list of the minimal distance to all other SV for each SV
-    rc  = zeros(length(sv))
-    for i in eachindex(sv)
-        dist_to_all_other_SV = [norm(sv[i]-sv[j]) for j in eachindex(sv)]
-        if length(dist_to_all_other_SV) > 1
-            rc[i] = sort(dist_to_all_other_SV)[2]
-        else
-            rc[i] = -1 ## impossible value, meaning that there is only one (or zero) SV, hence the distance to nearest SV is not defined
+@everywhere function compute_rc(sv::Array{Float64,2}) # auxillary function that returns a list of the minimal distance to all other SV for each SV
+    rc  = NaN*zeros(size(sv)[2])
+    for i in eachindex(rc)
+        dist_to_all_other_SV = [norm(sv[:,i]-sv[:,j]) for j in eachindex(rc)]
+        if length(dist_to_all_other_SV)>1
+            rc[i] = sort(dist_to_all_other_SV)[2] # the minimum will alway be zero (distance to itself). Small arrays so no need for O(n) algo
         end
     end
     return rc
@@ -110,7 +112,7 @@ end
                 K[i,j] = Matérn(norm(X[i,:]-Y[j,:]),1/2)
         end
     end
-    return K ## the adjoint is necessary to match the desired format of sklearn
+    return K
 end
 
 @everywhere function Run_fixed_dimension(PP,Δ,d,M=1) ## d=dimension is a integer passed in argument and the scan is over M and the vectors PP, Δ (gaps between interfaces)
@@ -148,7 +150,8 @@ end
                     # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
                     # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
                     #
-                    # clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
+                    # ρ = 100
+                    # clf = SV.SVC(C=1E10,gamma=1.0/(2*ρ^2),cache_size=1000) # allocated cache (in MB)
                     # clf.fit(Xtrain, Ytrain)
                     #
                     # misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest),Ytest)*weight_band
@@ -157,8 +160,9 @@ end
 
         ## The following is the same for any kernel
                 # α
-                    alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
-                    alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
+                tmp = abs.(clf.dual_coef_)
+                alpha_mean_matrix[i,j,m] = mean(tmp)
+                alpha_std_matrix[i,j,m]  = std(tmp)
                 # r_c
                     sv = Xtrain[clf.support_ .+ 1]
                     rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
@@ -190,34 +194,36 @@ end
 
             for m in 1:M
                 ## If Kernel = Laplace
-                    Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
-
-                    clf = SV.SVC(C=1E10,kernel=Kernel_Matrix,cache_size=1000) # allocated cache (in MB)
-                    # GramTrain = Kernel_Matrix(Xtrain,Xtrain)
-                    clf.fit(Xtrain', Ytrain)
-
-                    # GramTest = Kernel_Matrix(Xtrain,Xtest)
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
-                    global str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
-
-                ## If Kernel = Gaussian (default kernel of the Python SVC machine)
                     # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
                     # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
                     #
-                    # clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
+                    # clf = SV.SVC(C=1E10,kernel=Kernel_Matrix,cache_size=1000) # allocated cache (in MB)
+                    # # GramTrain = Kernel_Matrix(Xtrain,Xtrain)
                     # clf.fit(Xtrain', Ytrain)
                     #
+                    # # GramTest = Kernel_Matrix(Xtrain,Xtest)
                     # misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
-                    # global str = "Gaussian_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    # global str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+
+                ## If Kernel = Gaussian (default kernel of the Python SVC machine)
+                    Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+
+                    ρ = 100 # scale >> typical width = 1 (variance of the distrib of data for Normal(Hypercube) of Unif(Hypersphere))
+                    clf = SV.SVC(C=1E10,gamma=1.0/(2*ρ^2),cache_size=1000) # allocated cache (in MB)
+                    clf.fit(Xtrain',Ytrain)
+
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
+                    global str = "Gaussian_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
         ## The following is the same for any kernel
                 # α
-                #     alpha_mean_matrix[i,j,m] = mean(abs.(clf.dual_coef_))
-                #     alpha_std_matrix[i,j,m]  = std(abs.(clf.dual_coef_))
-                # # r_c
-                #     sv = Xtrain[clf.support_ .+ 1]
-                #     rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
+                    tmp = abs.(clf.dual_coef_)
+                    alpha_mean_matrix[i,j,m] = mean(tmp)
+                    alpha_std_matrix[i,j,m]  = std(tmp)
+                # r_c
+                    sv = Xtrain[:,clf.support_ .+ 1]
+                    rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
             end # Realisations
         end # Δ0
     end # Ptrain

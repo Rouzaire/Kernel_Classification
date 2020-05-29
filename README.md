@@ -17,7 +17,10 @@ The project is small enough for the code to be organized as follows :
 
 ## Generation of the data
 
-The data is generated uniformly on the unit hypersphere of dimension d (for clarity : d=1 means the unit circle and d=2 means the usual sphere embedded in the natural 3 dimensions) by normalizing (to 1) points from a multivariate random normal distribution in d+1 dimensions. In case of a finite gap Δ, there must be no data such that |x1| < Δ. The strategy is simple : generate more samples and throw away samples such that |x1| < Δ.
+The data is generated uniformly on the unit hypersphere of dimension d (for clarity : d=1 means the unit circle and d=2 means the usual sphere embedded in the natural 3 dimensions) by normalizing (to 1) points from a multivariate random normal distribution in d+1 dimensions.
+
+In case of a finite gap Δ, there must be no data such that |x1| < Δ. The strategy is simple : generate more samples and throw away samples such that |x1| < Δ.
+
 Note that the labeling is internally handled by the `generate_Y` function.
 * `generate_TrainSet` has nothing special, data is uniformly distributed on the unit hypersphere \ the gap Δ
 * On the other hand, `generate_TestSet` is slightly different. Because when classifying with a gap between interfaces, the probability to misclassify is much smaller (in fact, the learning curves decrease exponentially), the size of the trainset grows exponentially fast and quickly saturates the RAM. Therefore, I implemented sort of an **Importance Sampling** (IS) algorithm (at least conceptually). The idea is that if a test point is far from the interface, it will for sure be correctly classified : it is therefore useless to compute that prediction. `generate_TestSet` thus only generates data points in the vicinity of the gap. The choice of the distance to the gap is of capital importance. It must be sufficiently small for the IS to be effective, but it must be sufficiently large to catch all possibly misclassified points, otherwise the estimate would be very incorrect. That distance is encoded in the variable `SVband`. The `generate_TestSet` also returns the IS weight called `weight_band`, which is simply the probability to fall into that 'SVband' region.
@@ -28,7 +31,7 @@ Note that the labeling is internally handled by the `generate_Y` function.
 
 * The actual classification is taken care of by the *[SVC algorithm](https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html)* of the Python *sklearn* library. This library is called through Julia thanks to the *[PyCall Julia package](https://github.com/JuliaPy/PyCall.jl/)*. This library exports a soft-margin algorithm, which can emulate a hard-margin SVM if the cost C >> 1 (set to 1E10 in the code), completely prohibiting misclassification during training.
      * The charges (α dual coefficients of the support vectors) are delivered by the `dual_coef_` attribute of the Python classifier. Note that they are signed.
-     * The distances between nearest support vectors is not supported by any native attribute/method : the function `rc` and `compute_rc` handle these calculations.     
+     * The distances between nearest support vectors is not supported by any native attribute/method : the functions `rc` and `compute_rc` handle these calculations.     
 
 * The code is designed to collect statistics by running M independent realisations. 20 - 40 realisations should be sufficient for smooth curves and small standard deviation for most of problems.
 

@@ -100,19 +100,19 @@ end
 end
 
 @everywhere function Kernel_Matrix(X::Array{Float64,2},Y::Array{Float64,2})
-    ρ = 100.0 ; σ = 1.0
-    Px = size(X)[1] ; Py = size(Y)[1]
+    # ρ = 100.0 ; σ = 1.0
+    Px = size(X)[2] ; Py = size(Y)[2]
     K = ones(Float64,Px,Py)
     if X == Y
         for i in 1:Px , j in i+1:Py
-                K[i,j] = K[j,i] = Matérn(norm(X[i,:]-Y[j,:]),1/2)
+                K[i,j] = K[j,i] = Matérn(norm(X[:,i]-Y[:,j]),1/2)
         end
     else
         for i in 1:Px , j in 1:Py
-                K[i,j] = Matérn(norm(X[i,:]-Y[j,:]),1/2)
+                K[i,j] = Matérn(norm(X[:,i]-Y[:,j]),1/2)
         end
     end
-    return K
+    return K'
 end
 
 @everywhere function Run_fixed_dimension(PP,Δ,d,M=1) ## d=dimension is a integer passed in argument and the scan is over M and the vectors PP, Δ (gaps between interfaces)
@@ -128,23 +128,23 @@ end
 
         for j in eachindex(Δ)
             Δ0 = Δ[j]
-            low = 1E3 ; high = 1E6 ; pow = 1 + 4Δ0
-            # Ptest = Int(round((min(high,max(5*Ptrain^pow,low))))) # enforce low ≤ Ptest ≤ high
-            Ptest = 1000
+            low = 1E2 ; high = 1E3
+            Ptest = Int(round((min(high,max(Ptrain,low))))) # enforce low ≤ Ptest = Ptrain ≤ high
+            # Ptest = 1000
 
             println("SVM for P = $Ptrain, Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
                 ## If Kernel = Laplace
-                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
-                    #
-                    # clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
-                    # GramTrain = Kernel_Matrix(Xtrain,Xtrain)
-                    # clf.fit(GramTrain, Ytrain)
-                    #
-                    # GramTest = Kernel_Matrix(Xtrain,Xtest)
-                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
-                    # global str = "Laplace_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+
+                    clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
+                    GramTrain = Kernel_Matrix(Xtrain,Xtrain)
+                    clf.fit(GramTrain, Ytrain)
+
+                    GramTest = Kernel_Matrix(Xtrain,Xtest)
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
+                    global str = "Laplace_Kernel\\D_"*string(d)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
                 ## If Kernel = Gaussian (default kernel of the Python SVC machine)
                     # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
@@ -152,10 +152,11 @@ end
                     #
                     # ρ = 100
                     # clf = SV.SVC(C=1E10,gamma=1.0/(2*ρ^2),cache_size=1000) # allocated cache (in MB)
-                    # clf.fit(Xtrain, Ytrain)
+                    # clf.fit(Xtrain', Ytrain)
                     #
-                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest),Ytest)*weight_band
-                    # global str = "Gaussian_Kernel\\D_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
+                    # global str = "Gaussian_Kernel\\D_"*string(d)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+
 
 
         ## The following is the same for any kernel
@@ -164,8 +165,8 @@ end
                 alpha_mean_matrix[i,j,m] = mean(tmp)
                 alpha_std_matrix[i,j,m]  = std(tmp)
                 # r_c
-                    sv = Xtrain[clf.support_ .+ 1]
-                    rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
+                sv = Xtrain[:,clf.support_ .+ 1]
+                rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
             end # Realisations
         end # Δ0
     end # Ptrain
@@ -206,15 +207,15 @@ end
                     # global str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
                 ## If Kernel = Gaussian (default kernel of the Python SVC machine)
-                    Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
-
-                    ρ = 100 # scale >> typical width = 1 (variance of the distrib of data for Normal(Hypercube) of Unif(Hypersphere))
-                    clf = SV.SVC(C=1E10,gamma=1.0/(2*ρ^2),cache_size=1000) # allocated cache (in MB)
-                    clf.fit(Xtrain',Ytrain)
-
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
-                    global str = "Gaussian_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+                    #
+                    # ρ = 100 # scale >> typical width = 1 (variance of the distrib of data for Normal(Hypercube) of Unif(Hypersphere))
+                    # clf = SV.SVC(C=1E10,gamma=1.0/(2*ρ^2),cache_size=1000) # allocated cache (in MB)
+                    # clf.fit(Xtrain',Ytrain)
+                    #
+                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
+                    # global str = "Gaussian_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
         ## The following is the same for any kernel
                 # α

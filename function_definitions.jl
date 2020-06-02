@@ -24,9 +24,9 @@ end
 
     M = Int(ceil(2*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
     X = rand(MvNormal(zeros(d+1),I(d+1)),M)
-    # for m in 1:M
-    #     X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
-    # end
+    for m in 1:M
+        X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
+    end
     X = X[:,[Δ0/2 ≤ abs(X[1,i]) for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
     @assert length(X) ≥ Ptrain
     X = X[:,1:Ptrain]
@@ -50,9 +50,9 @@ end
 
     M = Int(ceil(2*Ptest/weight_band/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
     X = rand(MvNormal(zeros(d+1),I(d+1)),M)
-    # for m in 1:M
-    #     X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
-    # end
+    for m in 1:M
+        X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
+    end
     X = X[:,[Δ0/2 ≤ abs(X[1,i]) ≤ Δ0/2 + SVband for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
     @assert length(X) ≥ Ptest
     X = X[:,1:Ptest]

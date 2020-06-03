@@ -1,5 +1,6 @@
 cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
 using Pkg; Pkg.activate("."); Pkg.instantiate();
+cd("D:\\Documents\\Ecole\\EPFL\\Internship_2019_ML\\Kernel Classification SVM")
 using Plots, SpecialFunctions, JLD, Dates,Distributed, LinearAlgebra, Distributions
 pyplot() ; plot()
 using SpecialFunctions,Distributed,LinearAlgebra,Distributions,PyCall,BenchmarkTools
@@ -8,9 +9,9 @@ SV = pyimport("sklearn.svm")
 include("function_definitions.jl")
 
 Δ0 = 0.5
-Ptrain = Int(1E3)
+Ptrain = Int(5E3)
 Ptest = Int(1E3)
-dimension = 1
+dimension = 2
 δ = Ptrain^(-1/dimension)
 
 Xtrain,Ytrain = generate_TrainSet(Ptrain,dimension,Δ0)
@@ -18,12 +19,16 @@ mean(Ytrain)
 Xtest,Ytest,w = generate_TestSet(Ptest,dimension,Δ0)
 mean(Ytest)
 
-scatter([Xtrain[1,i] for i in 1:Ptrain],[Xtrain[2,i] for i in 1:Ptrain],legend=nothing,camera=(30,70))
-scatter([Xtest[1,i] for i in 1:Ptest],[Xtest[2,i] for i in 1:Ptest],legend=nothing,camera=(30,70))
-# xlabel!("x")
-# ylabel!("y")
-# title!("Distribution with Margin Δ0 = $Δ0")
-savefig("distrib_test.pdf")
+scatter([Xtrain[1,i] for i in 1:Ptrain],[Xtrain[2,i] for i in 1:Ptrain],[Xtrain[3,i] for i in 1:Ptrain],legend=nothing,camera=(30,70))
+title!("TrainSet with Margin Δ0 = $Δ0")
+scatter([Xtest[1,i] for i in 1:Ptest],[Xtest[2,i] for i in 1:Ptest],[Xtest[3,i] for i in 1:Ptest],legend=nothing,camera=(30,70))
+title!("TestSet with Margin Δ0 = $Δ0 and SVband = 0.2")
+
+xlabel!("x")
+xlims!((-1,1))
+ylabel!("y")
+savefig("Figures\\distrib_XX.svg")
+savefig("Figures\\distrib_XX.pdf")
 
 ##
 cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")

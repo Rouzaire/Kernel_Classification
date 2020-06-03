@@ -12,7 +12,7 @@
     M = size(X)[2]
     labels = zeros(Int,M)
     for i in 1:M
-        if X[1,i] ≥ Δ0/2 labels[i] = + 1
+        if X[1,i] ≥ Δ0/2 labels[i] = + 1 # label function : y(x) = sgn(x1)
         else             labels[i] = - 1
         end
     end
@@ -33,8 +33,6 @@ end
 
     return X , generate_Y(X,Δ0)
 end
-
-
 
 @everywhere function generate_TestSet(Ptest::Int,d::Int,Δ0::Float64)
     # 0<ξ<2 is the exponent governing the cusp (ξ=1 for Laplace kernel, ξ=2 for RBF/Gaussian kernel)
@@ -135,16 +133,16 @@ end
             println("SVM for P = $Ptrain, Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
             for m in 1:M
                 ## If Kernel = Laplace
-                    Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
-
-                    clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
-                    GramTrain = Kernel_Matrix(Xtrain,Xtrain)
-                    clf.fit(GramTrain, Ytrain)
-
-                    GramTest = Kernel_Matrix(Xtrain,Xtest)
-                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
-                    global str = "Laplace_Kernel\\D_"*string(d)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+                    #
+                    # clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
+                    # GramTrain = Kernel_Matrix(Xtrain,Xtrain)
+                    # clf.fit(GramTrain, Ytrain)
+                    #
+                    # GramTest = Kernel_Matrix(Xtrain,Xtest)
+                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
+                    # global str = "Laplace_Kernel\\D_"*string(d)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
                 ## If Kernel = Gaussian (default kernel of the Python SVC machine)
                     # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
@@ -195,16 +193,16 @@ end
 
             for m in 1:M
                 ## If Kernel = Laplace
-                    # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-                    # Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
-                    #
-                    # clf = SV.SVC(C=1E10,kernel=Kernel_Matrix,cache_size=1000) # allocated cache (in MB)
-                    # # GramTrain = Kernel_Matrix(Xtrain,Xtrain)
-                    # clf.fit(Xtrain', Ytrain)
-                    #
-                    # # GramTest = Kernel_Matrix(Xtrain,Xtest)
-                    # misclassification_error_matrix[i,j,m] = testerr(clf.predict(Xtest'),Ytest)*weight_band
-                    # global str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
+                    Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+
+                    clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
+                    GramTrain = Kernel_Matrix(Xtrain,Xtrain)
+                    clf.fit(GramTrain, Ytrain)
+
+                    GramTest = Kernel_Matrix(Xtrain,Xtest)
+                    misclassification_error_matrix[i,j,m] = testerr(clf.predict(GramTest),Ytest)*weight_band
+                    global str = "Laplace_Kernel\\Δ_"*string(Δ0)*"_"*string(Dates.day(now())) # where to store data, at the end of the function
 
                 ## If Kernel = Gaussian (default kernel of the Python SVC machine)
                     # Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)

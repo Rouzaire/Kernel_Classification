@@ -10,7 +10,7 @@ M  = param["M"]
 Δ  = param["Δ"]
 dimensions = param["dimensions"]
 parallelized_over = param["parallelized_over"]
-ξ = 1 # 1 = Laplace # 2 = Gaussian/RBF
+ξ = 2 # 1 = Laplace # 2 = Gaussian/RBF
 
 ## 4D Matrix to store data // dim 1 : PP //  dim 2 : Δ // dim 3 : Dimensions  // dim 4 : Realisations
 misclassification_error_matrix  = zeros(length(PP),length(Δ),length(dimensions),M)
@@ -101,9 +101,11 @@ for j in 1:length(dimensions)
     for i in 2:length(Δ)
         yerr = factor*smooth(error_avg[1:s[i,j],i,j,1] ./ error_avg[1:s[i,j],1,j,1]).*(error_std[1:s[i,j],i,j,1]./error_avg[1:s[i,j],i,j,1] .+ error_std[1:s[i,j],1,j,1]./error_avg[1:s[i,j],1,j,1])
         plot!(PP[1:s[i,j]],smooth(error_avg[1:s[i,j],i,j,1] ./ error_avg[1:s[i,j],1,j,1]),yaxis=:log,ribbon=yerr,color=i,label="Δ0 = $(Δ[i])")
-        # plot!(PP[1:s[i,j]],exp.(-(Δ[i])^(2)*PP[1:s[i,j]]),line=:dash,color=i)
+        plot!(PP[1:s[i,j]],exp.(-1/3*(Δ[i])^(2)*PP[1:s[i,j]] .- 0.4),line=:dash,color=i,label="")
     end
+    plot!(NaN*PP[1:s[1,1]],NaN*exp.(-1/10*(Δ[1])^(2)*PP[1:s[1,1]] .- 0.3),line=:dash,color=:black,label="exp(-⅓⋅Δ²⋅P)")
     # ylims!((-5,-1))
+    display(p)
     savefig("Figures\\Laplace_Kernel\\Gap\\departure_d"*string(dimensions[j])*".pdf")
     savefig("Figures\\Laplace_Kernel\\Gap\\departure_d"*string(dimensions[j]))
 end
@@ -116,7 +118,7 @@ for j in 1:length(dimensions)
         plot!(PP,1e5*PP .^ (pow_̄α[j]),line=:dash,axis=:log,color=i,label="")
     end
     savefig("Figures\\Laplace_Kernel\\alphabar_d"*string(dimensions[j])*"_cube")
-end
+en
 
 for j in 1:length(dimensions)
     p = plot(box=true,legend=:best,xlabel="P",ylabel="̄r_c avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")

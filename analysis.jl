@@ -38,12 +38,10 @@ elseif parallelized_over == "d"
         delta_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["delta_mean_matrix"] ; delta_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["delta_std_matrix"]
     end
 end
-error_avg       = mean(misclassification_error_matrix,dims=4)
-error_std       = std(misclassification_error_matrix,dims=4)
-alpha_mean_avg  = mean(alpha_mean_matrix,dims=4)
-alpha_mean_std  = std(alpha_mean_matrix,dims=4)
-rc_mean_avg     = mean(rc_mean_matrix,dims=4)
-rc_mean_std     = std(rc_mean_matrix,dims=4)
+error_avg       = mean(misclassification_error_matrix,dims=4)  ; error_std       = std(misclassification_error_matrix,dims=4)
+alpha_mean_avg  = mean(alpha_mean_matrix,dims=4) ; alpha_mean_std  = std(alpha_mean_matrix,dims=4)
+rc_mean_avg     = mean(rc_mean_matrix,dims=4) ; rc_mean_std     = std(rc_mean_matrix,dims=4)
+delta_mean_avg  = mean(delta_mean_matrix,dims=4) ; delta_mean_std  = std(delta_mean_matrix,dims=4)
 
 s = cut_zeros(error_avg)
 
@@ -115,35 +113,53 @@ pow_rc = -2 ./(3dimensions .- 3 .+ ξ)
 # end
 
 ## Investigation alphabar
-for j in 1:length(dimensions)
-    p = plot(box=true,legend=:topleft,xlabel="P",ylabel="̄α avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
-    for i in 1:length(Δ)
-        plot!(PP,smooth(alpha_mean_avg[:,i,j,1]),ribbon=1/2*alpha_mean_std[:,i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
-    end
-    plot!(PP,65*PP .^ (pow_̄α[j]),line=:dash,axis=:log,color=:black,label="Slope $(round(pow_̄α[j],digits=2))")
-    display(p)
-    savefig("Figures\\Laplace_Kernel\\alphabar_d"*string(dimensions[j])*"")
-end
-
-for j in 1:length(dimensions)
-    p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="̄α(Δ0)/̄α(Δ0=0) avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
-    for i in 1:length(Δ)
-        yerr = 0.5*smooth(alpha_mean_avg[1:s[i,j],i,j,1] ./ alpha_mean_avg[1:s[i,j],1,j,1]).*(alpha_mean_std[1:s[i,j],i,j,1]./alpha_mean_avg[1:s[i,j],i,j,1] .+ alpha_mean_std[1:s[i,j],1,j,1]./alpha_mean_avg[1:s[i,j],1,j,1])
-        plot!(PP,smooth(alpha_mean_avg[:,i,j,1]./alpha_mean_avg[:,1,j,1]),xaxis=:log,ribbon=1/2*yerr,color=i,label="Δ0 = $(Δ[i])")
-    end
-    display(p)
-    savefig("Figures\\Laplace_Kernel\\departure_alphabar_d"*string(dimensions[j])*".pdf")
-end
+# for j in 1:length(dimensions)
+#     p = plot(box=true,legend=:topleft,xlabel="P",ylabel="̄α avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+#     for i in 1:length(Δ)
+#         plot!(PP,smooth(alpha_mean_avg[:,i,j,1]),ribbon=1/2*alpha_mean_std[:,i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
+#     end
+#     plot!(PP,65*PP .^ (pow_̄α[j]),line=:dash,axis=:log,color=:black,label="Slope $(round(pow_̄α[j],digits=2))")
+#     display(p)
+#     savefig("Figures\\Laplace_Kernel\\alphabar_d"*string(dimensions[j])*"")
+# end
+#
+# for j in 1:length(dimensions)
+#     p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="̄α(Δ0)/̄α(Δ0=0) avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+#     for i in 1:length(Δ)
+#         yerr = 0.5*smooth(alpha_mean_avg[1:s[i,j],i,j,1] ./ alpha_mean_avg[1:s[i,j],1,j,1]).*(alpha_mean_std[1:s[i,j],i,j,1]./alpha_mean_avg[1:s[i,j],i,j,1] .+ alpha_mean_std[1:s[i,j],1,j,1]./alpha_mean_avg[1:s[i,j],1,j,1])
+#         plot!(PP,smooth(alpha_mean_avg[:,i,j,1]./alpha_mean_avg[:,1,j,1]),xaxis=:log,ribbon=1/2*yerr,color=i,label="Δ0 = $(Δ[i])")
+#     end
+#     display(p)
+#     savefig("Figures\\Laplace_Kernel\\departure_alphabar_d"*string(dimensions[j])*".pdf")
+# end
 
 ## Investigation rc
-
-for j in 1:length(dimensions)
-    p = plot(box=true,legend=:best,xlabel="P",ylabel="̄r_c avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
-    for i in 1:length(Δ)
-        plot!(PP,smooth(rc_mean_matrix[:,i,j,1]),ribbon=0*alpha_mean_std[:,i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i]) , Slope $(round(pow_̄α[j],digits=2))")
-        plot!(PP,3*PP .^ (pow_rc[j]),line=:dash,axis=:log,color=i,label="")
-    end
-    savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
-end
+#
+# for j in 1:length(dimensions)
+#     p = plot(box=true,legend=:best,xlabel="P",ylabel="̄r_c avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+#     for i in 1:length(Δ)
+#         plot!(PP,smooth(rc_mean_matrix[:,i,j,1]),ribbon=0*alpha_mean_std[:,i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i]) , Slope $(round(pow_̄α[j],digits=2))")
+#         plot!(PP,3*PP .^ (pow_rc[j]),line=:dash,axis=:log,color=i,label="")
+#     end
+#     savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
+# end
 
 ## Investigation error as a function of the gap
+p = plot(legend=:best,xlabel="Δ0",ylabel="-log ϵ",title="Scaling of ϵ with the gap [P = 1000]")
+for j in 1:length(dimensions)
+    i=2
+    plot!(Δ[:],-log.(smooth(error_avg[i,:,j,1])),ribbon=1*error_std[i,:,j,1],yaxis=:log,color=j,label="d = $(dimensions[j])")
+    # savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
+end
+plot!(Δ[2:end], 3.3 .+ 2exp.(14*Δ[2:end]),yaxis=:log,color=:black)
+display(p)
+
+## Investigation relation error and SVband
+p = plot(legend=:best,xlabel="Δ0",ylabel="-log ϵ",title="Scaling of ϵ with the gap [P = 1000]")
+for j in 1:length(dimensions)
+    i=2
+    plot!(Δ[:],-log.(smooth(error_avg[i,:,j,1])),ribbon=1*error_std[i,:,j,1],yaxis=:log,color=j,label="d = $(dimensions[j])")
+    # savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
+end
+plot!(Δ[2:end], 3.3 .+ 2exp.(14*Δ[2:end]),yaxis=:log,color=:black)
+display(p)

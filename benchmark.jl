@@ -77,7 +77,7 @@ for i in eachindex(PP)
 end # Ptrain
 
 
-## Compute SVband
+## Compute Delta
 PP = unique(Int.(round.(10.0 .^range(log10(100),stop=log10(1E3),length=50))))
 dimensions = [2] ; ξ=1; β = -(dimensions .- 1 .+ ξ)./(3dimensions .- 3 .+ ξ)
 M = 50
@@ -123,3 +123,5 @@ end
 # # r_c
 # sv = Xtrain[:,clf.support_ .+ 1]
 # rc_mean_matrix,rc_std_matrix= rc(sv,Δ0)
+
+##

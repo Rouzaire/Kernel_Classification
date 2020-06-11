@@ -234,7 +234,7 @@ end
     end # Ptrain
 
     ## Save Data for later analysis
-    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix,"alpha_mean_matrix",alpha_mean_matrix,"alpha_std_matrix",alpha_std_matrix,"rc_mean_matrix",rc_mean_matrix,"rc_std_matrix",rc_std_matrix, "PP", PP, "Δ", Δ0, "d", dim, "M", M)
+    JLD.save("Data\\"*str*".jld", "error", misclassification_error_matrix,"alpha_mean_matrix",alpha_mean_matrix,"alpha_std_matrix",alpha_std_matrix,"rc_mean_matrix",rc_mean_matrix,"rc_std_matrix",rc_std_matrix,"delta_mean_matrix",delta_mean_matrix,"delta_std_matrix",delta_std_matrix, "PP", PP, "Δ", Δ0, "d", dim, "M", M)
 end
 
 @everywhere function Run(parallelized_over,args...)

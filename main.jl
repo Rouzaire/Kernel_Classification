@@ -2,18 +2,24 @@ cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
 using Pkg; Pkg.activate("."); Pkg.instantiate();
 cd("D:\\Documents\\Ecole\\EPFL\\Internship_2019_ML\\Kernel Classification SVM")
 
+# parallelized_over = "Δ" # change accordingly [PP for i in eachindex(...)] and addprocs
+# Δ = [0.0,0.01,0.02,0.03,0.05,0.1]
+# PP = unique(Int.(round.(10.0 .^range(log10(20),stop=log10(5E3),length=50))))
+# dimensions = [10]
+# M = 50
+
 parallelized_over = "Δ" # change accordingly [PP for i in eachindex(...)] and addprocs
-Δ = [0.0,0.01,0.02,0.03,0.05,0.1]
-PP = unique(Int.(round.(10.0 .^range(log10(20),stop=log10(5E3),length=50))))
-dimensions = [10]
+Δ = range(0.0,stop=0.1,length=50)
+PP = 300
+dimensions = [2,3,10]
 M = 50
 
 ## Values for a first round (to precompile the code)
-parallelized_over = "Δ" # change accordingly [PP for i in eachindex(...)] and addprocs
-Δ = [0.0,0.01,0.02,0.03,0.05,0.1]
-PP = unique(Int.(round.(10.0 .^range(log10(20),stop=log10(5E3),length=5))))
-dimensions = [10]
-M = 1
+# parallelized_over = "Δ" # change accordingly [PP for i in eachindex(...)] and addprocs
+# Δ = [0.0,0.01,0.02,0.03,0.05,0.1]
+# PP = unique(Int.(round.(10.0 .^range(log10(20),stop=log10(5E3),length=5))))
+# dimensions = [2,3,10]
+# M = 1
 
 using Distributed
 addprocs(min(6,length(Δ)))

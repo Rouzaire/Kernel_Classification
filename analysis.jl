@@ -1,10 +1,10 @@
 cd("D:\\Documents\\Ecole\\EPFL\\Internship_2019_ML\\Kernel Classification SVM")
 using Plots,JLD,Distributed,Statistics,ColorSchemes
-pyplot() ; default(:palette,ColorSchemes.tab10.colors[1:10]) ; plot()
+pyplot() ; default(:palette,ColorSchemes.tab10.colors[1:10]) ; default(:box,true) ; plot()
 include("function_definitions.jl")
 
 ##
-dayy = "3" ; param = load("Data\\Laplace_Kernel\\parameters_"*dayy*".jld")
+dayy = "11" ; param = load("Data\\Laplace_Kernel\\Scan_gap\\parameters_"*dayy*".jld")
 PP = param["PP"]
 M  = param["M"]
 Δ  = param["Δ"]
@@ -18,20 +18,24 @@ alpha_mean_matrix               = zeros(length(PP),length(Δ),length(dimensions)
 alpha_std_matrix                = zeros(length(PP),length(Δ),length(dimensions),M)
 rc_mean_matrix                  = zeros(length(PP),length(Δ),length(dimensions),M)
 rc_std_matrix                   = zeros(length(PP),length(Δ),length(dimensions),M)
+delta_mean_matrix               = zeros(length(PP),length(Δ),length(dimensions),M)
+delta_std_matrix                = zeros(length(PP),length(Δ),length(dimensions),M)
 
 if parallelized_over == "Δ"
     for i in eachindex(Δ)
         str = "Δ_"*string(Δ[i])*"_"*dayy
-        misclassification_error_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["error"]
-        alpha_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["alpha_mean_matrix"] ; alpha_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["alpha_std_matrix"]
-        rc_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["rc_mean_matrix"] ; rc_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["rc_std_matrix"]
+        misclassification_error_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["error"]
+        alpha_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["alpha_mean_matrix"] ; alpha_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["alpha_std_matrix"]
+        rc_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["rc_mean_matrix"] ; rc_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["rc_std_matrix"]
+        delta_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["delta_mean_matrix"] ; delta_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["delta_std_matrix"]
     end
 elseif parallelized_over == "d"
             for i in eachindex(dimensions)
         str = "D_"*string(dimensions[i])*"_"*dayy
-        misclassification_error_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["error"]
-        alpha_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["alpha_mean_matrix"] ; alpha_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["alpha_std_matrix"]
-        rc_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["rc_mean_matrix"] ; rc_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["rc_std_matrix"]
+        misclassification_error_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["error"]
+        alpha_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["alpha_mean_matrix"] ; alpha_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["alpha_std_matrix"]
+        rc_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["rc_mean_matrix"] ; rc_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["rc_std_matrix"]
+        delta_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["delta_mean_matrix"] ; delta_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["delta_std_matrix"]
     end
 end
 error_avg       = mean(misclassification_error_matrix,dims=4)
@@ -141,3 +145,5 @@ for j in 1:length(dimensions)
     end
     savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
 end
+
+## Investigation error as a function of the gap

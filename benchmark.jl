@@ -77,20 +77,49 @@ for i in eachindex(PP)
 end # Ptrain
 
 
-## Compute rc and alpha
-Ptrain = 100; Ptest = 100
-d = 2
-Δ0= 0.0
-Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+## Compute SVband
+PP = unique(Int.(round.(10.0 .^range(log10(100),stop=log10(1E3),length=50))))
+dimensions = [2] ; ξ=1; β = -(dimensions .- 1 .+ ξ)./(3dimensions .- 3 .+ ξ)
+M = 50
+Delta0 = [0.0,0.02,0.05,0.1]
+delta_max_matrix = zeros(length(PP),length(Delta0),length(dimensions),M)
+delta_mean_matrix = zeros(length(PP),length(Delta0),length(dimensions),M)
+@time for i in eachindex(PP)
+    Ptrain = PP[i]
+    for j in eachindex(Delta0)
+        Δ0 = Delta0[j]
+        for k in eachindex(dimensions)
+            d = dimensions[k]
+            println("P = $Ptrain , Δ = $Δ0 , d = $d")
+            for m in 1:M
+                Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
+                clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
+                GramTrain = Kernel_Matrix(Xtrain,Xtrain)
+                clf.fit(GramTrain,Ytrain)
+                tmp = abs.(Xtrain[:,clf.support_ .+ 1][1,:])
+                delta_max_matrix[i,j,k,m] = maximum(tmp)
+                delta_mean_matrix[i,j,k,m] = mean(tmp)
+            end
+        end
+    end
+end
+delta_max_matrix_mean = mean(delta_max_matrix,dims=4)
+delta_max_matrix_std = std(delta_max_matrix,dims=4)
+delta_mean_matrix_mean = mean(delta_mean_matrix,dims=4)
+delta_mean_matrix_std = std(delta_mean_matrix,dims=4)
+for j in eachindex(dimensions)
+    p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="Δ avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+    for i in eachindex(Delta0)
+        plot!(PP,smooth(delta_max_matrix_mean[:,i,j,1]).-Delta0[i],ribbon=0.25*smooth(delta_max_matrix_std[:,i,j,1]),axis=:log,color=i,label="Δ0 = $(Delta0[i])")
+    end
+    plot!(PP,3*PP .^ β[1],axis=:log,color=:black,label="Slope β")
+    # display(p)
+    savefig("Figures\\Laplace_Kernel\\testdelta")
+end
 
-clf = SV.SVC(C=1E10,cache_size=1000) # allocated cache (in MB)
-clf.fit(Xtrain', Ytrain)
-sum(clf.dual_coef_)
-
-# α
-alpha_mean_matrix = mean(abs.(clf.dual_coef_))
-alpha_std_matrix  = std(abs.(clf.dual_coef_))
-# r_c
-sv = Xtrain[:,clf.support_ .+ 1]
-rc_mean_matrix,rc_std_matrix= rc(sv,Δ0)
+# # α
+# alpha_mean_matrix = mean(abs.(clf.dual_coef_))
+# alpha_std_matrix  = std(abs.(clf.dual_coef_))
+# # r_c
+# sv = Xtrain[:,clf.support_ .+ 1]
+# rc_mean_matrix,rc_std_matrix= rc(sv,Δ0)

@@ -10,7 +10,7 @@ M  = param["M"]
 Δ  = param["Δ"]
 dimensions = param["dimensions"]
 parallelized_over = param["parallelized_over"]
-ξ = 2 # 1 = Laplace # 2 = Gaussian/RBF
+ξ = 1 # 1 = Laplace # 2 = Gaussian/RBF
 
 ## 4D Matrix to store data // dim 1 : PP //  dim 2 : Δ // dim 3 : Dimensions  // dim 4 : Realisations
 misclassification_error_matrix  = zeros(length(PP),length(Δ),length(dimensions),M)
@@ -27,7 +27,7 @@ if parallelized_over == "Δ"
         rc_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["rc_mean_matrix"] ; rc_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["rc_std_matrix"]
     end
 elseif parallelized_over == "d"
-    for i in eachindex(dimensions)
+            for i in eachindex(dimensions)
         str = "D_"*string(dimensions[i])*"_"*dayy
         misclassification_error_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["error"]
         alpha_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["alpha_mean_matrix"] ; alpha_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["alpha_std_matrix"]
@@ -84,41 +84,54 @@ pow_rc = -2 ./(3dimensions .- 3 .+ ξ)
 # savefig("Figures\\0test_error_gap.pdf")
 
 ## Investigate the departure from powerlaw
-factor = 0.1
-for j in 1:length(dimensions)
-    p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
-    # plot!(PP,0.3*PP .^-0.75,line=:dash,axis=:log,color=:black,label="No Gap")
-    for i in 1:length(Δ)
-        plot!(PP[1:s[i,j]],smooth(error_avg[1:s[i,j],i,j,1]),ribbon=factor*error_std[1:s[i,j],i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
-    end
-    savefig("Figures\\Laplace_Kernel\\Gap\\gap_d"*string(dimensions[j])*".pdf")
-    savefig("Figures\\Laplace_Kernel\\Gap\\gap_d"*string(dimensions[j]))
-end
+# factor = 0.1
+# for j in 1:length(dimensions)
+#     p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+#     # plot!(PP,0.3*PP .^-0.75,line=:dash,axis=:log,color=:black,label="No Gap")
+#     for i in 1:length(Δ)
+#         plot!(PP[1:s[i,j]],smooth(error_avg[1:s[i,j],i,j,1]),ribbon=factor*error_std[1:s[i,j],i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
+#     end
+#     savefig("Figures\\Laplace_Kernel\\Gap\\gap_d"*string(dimensions[j])*".pdf")
+#     savefig("Figures\\Laplace_Kernel\\Gap\\gap_d"*string(dimensions[j]))
+# end
 
-factor = 0.1
+# factor = 0.1
+# for j in 1:length(dimensions)
+#     p = plot(box=true,legend=true,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+#     for i in 2:length(Δ)
+        # yerr = factor*smooth(error_avg[1:s[i,j],i,j,1] ./ error_avg[1:s[i,j],1,j,1]).*(error_std[1:s[i,j],i,j,1]./error_avg[1:s[i,j],i,j,1] .+ error_std[1:s[i,j],1,j,1]./error_avg[1:s[i,j],1,j,1])
+#         plot!(PP[1:s[i,j]],smooth(error_avg[1:s[i,j],i,j,1] ./ error_avg[1:s[i,j],1,j,1]),yaxis=:log,ribbon=yerr,color=i,label="Δ0 = $(Δ[i])")
+#         plot!(PP[1:s[i,j]],exp.(-1/3*(Δ[i])^(2)*PP[1:s[i,j]] .- 0.4),line=:dash,color=i,label="")
+#     end
+#     plot!(NaN*PP[1:s[1,1]],NaN*exp.(-1/10*(Δ[1])^(2)*PP[1:s[1,1]] .- 0.3),line=:dash,color=:black,label="exp(-⅓⋅Δ²⋅P)")
+#     # ylims!((-5,-1))
+#     display(p)
+#     savefig("Figures\\Laplace_Kernel\\Gap\\departure_d"*string(dimensions[j])*".pdf")
+#     savefig("Figures\\Laplace_Kernel\\Gap\\departure_d"*string(dimensions[j]))
+# end
+
+## Investigation alphabar
 for j in 1:length(dimensions)
-    p = plot(box=true,legend=true,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
-    for i in 2:length(Δ)
-        yerr = factor*smooth(error_avg[1:s[i,j],i,j,1] ./ error_avg[1:s[i,j],1,j,1]).*(error_std[1:s[i,j],i,j,1]./error_avg[1:s[i,j],i,j,1] .+ error_std[1:s[i,j],1,j,1]./error_avg[1:s[i,j],1,j,1])
-        plot!(PP[1:s[i,j]],smooth(error_avg[1:s[i,j],i,j,1] ./ error_avg[1:s[i,j],1,j,1]),yaxis=:log,ribbon=yerr,color=i,label="Δ0 = $(Δ[i])")
-        plot!(PP[1:s[i,j]],exp.(-1/3*(Δ[i])^(2)*PP[1:s[i,j]] .- 0.4),line=:dash,color=i,label="")
+    p = plot(box=true,legend=:topleft,xlabel="P",ylabel="̄α avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+    for i in 1:length(Δ)
+        plot!(PP,smooth(alpha_mean_avg[:,i,j,1]),ribbon=1/2*alpha_mean_std[:,i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
     end
-    plot!(NaN*PP[1:s[1,1]],NaN*exp.(-1/10*(Δ[1])^(2)*PP[1:s[1,1]] .- 0.3),line=:dash,color=:black,label="exp(-⅓⋅Δ²⋅P)")
-    # ylims!((-5,-1))
+    plot!(PP,65*PP .^ (pow_̄α[j]),line=:dash,axis=:log,color=:black,label="Slope $(round(pow_̄α[j],digits=2))")
     display(p)
-    savefig("Figures\\Laplace_Kernel\\Gap\\departure_d"*string(dimensions[j])*".pdf")
-    savefig("Figures\\Laplace_Kernel\\Gap\\departure_d"*string(dimensions[j]))
+    savefig("Figures\\Laplace_Kernel\\alphabar_d"*string(dimensions[j])*"")
 end
 
-## Investigation
 for j in 1:length(dimensions)
-    p = plot(box=true,legend=:bottomright,xlabel="P",ylabel="̄α avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+    p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="̄α(Δ0)/̄α(Δ0=0) avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
     for i in 1:length(Δ)
-        plot!(PP,smooth(alpha_mean_avg[:,i,j,1]),ribbon=0*alpha_mean_std[:,i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i]) , Slope $(round(pow_̄α[j],digits=2))")
-        plot!(PP,1e5*PP .^ (pow_̄α[j]),line=:dash,axis=:log,color=i,label="")
+        yerr = 0.5*smooth(alpha_mean_avg[1:s[i,j],i,j,1] ./ alpha_mean_avg[1:s[i,j],1,j,1]).*(alpha_mean_std[1:s[i,j],i,j,1]./alpha_mean_avg[1:s[i,j],i,j,1] .+ alpha_mean_std[1:s[i,j],1,j,1]./alpha_mean_avg[1:s[i,j],1,j,1])
+        plot!(PP,smooth(alpha_mean_avg[:,i,j,1]./alpha_mean_avg[:,1,j,1]),xaxis=:log,ribbon=1/2*yerr,color=i,label="Δ0 = $(Δ[i])")
     end
-    savefig("Figures\\Laplace_Kernel\\alphabar_d"*string(dimensions[j])*"_cube")
-en
+    display(p)
+    savefig("Figures\\Laplace_Kernel\\departure_alphabar_d"*string(dimensions[j])*".pdf")
+end
+
+## Investigation rc
 
 for j in 1:length(dimensions)
     p = plot(box=true,legend=:best,xlabel="P",ylabel="̄r_c avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
@@ -128,12 +141,3 @@ for j in 1:length(dimensions)
     end
     savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
 end
-
-
-xx = 1:10000
-plot(xx,0.1 * xx .^ -0.5,axis=:log)
-plot!(xx,xx .^ -0.5 .* exp.(-0.1/*xx),axis=:log)
-
-dx = 1e-3
-xx = 0:dx:0.5
-plot(xx,exp.(xx) .- 1 - xx)

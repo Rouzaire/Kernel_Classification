@@ -180,6 +180,8 @@ end
     alpha_std_matrix   = NaN*zeros(length(PP),length(dim),M)
     rc_mean_matrix     = NaN*zeros(length(PP),length(dim),M)
     rc_std_matrix      = NaN*zeros(length(PP),length(dim),M)
+    delta_mean_matrix  = NaN*zeros(length(PP),length(dim),M)
+    delta_std_matrix   = NaN*zeros(length(PP),length(dim),M)
 
     for i in eachindex(PP)
         Ptrain = PP[i]
@@ -223,6 +225,10 @@ end
                 # r_c
                     sv = Xtrain[:,clf.support_ .+ 1]
                     rc_mean_matrix[i,j,m],rc_std_matrix[i,j,m] = rc(sv,Δ0)
+                # \Delta
+                    tmp = abs.(Xtrain[:,clf.support_ .+ 1][1,:])
+                    delta_mean_matrix[i,j,m] = mean(tmp)
+                    delta_std_matrix[i,j,m] = std(tmp)
             end # Realisations
         end # Δ0
     end # Ptrain

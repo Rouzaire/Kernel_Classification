@@ -97,21 +97,26 @@ end
     return σ^2*exp(-h^2/2/ρ^2)
 end
 
-@everywhere function Kernel_Matrix(X::Array{Float64,2},Y::Array{Float64,2})
+@everywhere function Kernel_Matrix(X::Array{Float64,2},Y::Array{Float64,2})::Array{Float64,2} ## general case
     # ρ = 100.0 ; σ = 1.0
     Px = size(X)[2] ; Py = size(Y)[2]
     K = ones(Float64,Px,Py)
-    if X == Y
-        for i in 1:Px , j in i+1:Py
-                K[i,j] = K[j,i] = Matérn(norm(X[:,i]-Y[:,j]),1/2)
-        end
-    else
-        for i in 1:Px , j in 1:Py
-                K[i,j] = Matérn(norm(X[:,i]-Y[:,j]),1/2)
-        end
+    for i in 1:Px , j in 1:Py
+        K[i,j] = Matérn(norm(X[:,i]-Y[:,j]),1/2)
     end
     return K'
 end
+
+@everywhere function Kernel_Matrix(X::Array{Float64,2})::Array{Float64,2} ## special case when X=Y (Kernel_Matrix for trainset, evaluated in (Xtrain,Xtrain))
+    # ρ = 100.0 ; σ = 1.0
+    Px = size(X)[2]
+    K = ones(Float64,Px,Px)
+    for i in 1:Px , j in i+1:Px
+        K[i,j] = K[j,i] = Matérn(norm(X[:,i]-X[:,j]),1/2)
+    end
+    return K
+end
+
 
 @everywhere function Run_fixed_dimension(PP,Δ,d,M=1) ## d=dimension is a integer passed in argument and the scan is over M and the vectors PP, Δ (gaps between interfaces)
     ## 3D Matrix to store data // dim 1 : PP //  dim 2 : margin // dim 3 : Realisations
@@ -248,11 +253,12 @@ end
     ind = 1
     while X[ind]*X[ind+1] > 0
         ind = ind + 1
+        if ind ≥ length(X) return NaN end
     end ## ind is now the index of the last negative value
     v1 = X[ind]
     v2 = X[ind+1]
     @assert v1 < 0 ; @assert v2 > 0 ;
-    return xmin + ind*h -h*(v2+v1)/(v2-v1) # linear extrapolation of the root (where the decision boudary would have been =0)
+    return xmin + (ind-1)*h -h*(v2+v1)/(v2-v1) # linear extrapolation of the root (where the decision boudary would have been =0)
 end
 
 

@@ -9,10 +9,10 @@ cd("D:\\Documents\\Ecole\\EPFL\\Internship_2019_ML\\Kernel Classification SVM")
 # M = 50
 
 parallelized_over = "Δ" # change accordingly [PP for i in eachindex(...)] and addprocs
-Δ = range(0.0,stop=0.5,length=101)
-PP = [1000]
+Δ = range(0.0,stop=0.5,length=6)
+PP = Int.(round.(10 .^ range(log10(100),stop=log10(2000),length=5)))
 dimensions = [2,3,10]
-M = 50
+M = 1
 
 ## Values for a first round (to precompile the code)
 # parallelized_over = "Δ" # change accordingly [PP for i in eachindex(...)] and addprocs

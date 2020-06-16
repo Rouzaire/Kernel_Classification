@@ -1,10 +1,10 @@
 cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
 using Pkg; Pkg.activate("."); Pkg.instantiate();
 cd("D:\\Documents\\Ecole\\EPFL\\Internship_2019_ML\\Kernel Classification SVM")
-using Plots, SpecialFunctions, JLD, Dates,Distributed, LinearAlgebra, Distributions
-pyplot() ; plot()
-using SpecialFunctions,Distributed,LinearAlgebra,Distributions,PyCall,BenchmarkTools
+using Plots, SpecialFunctions, JLD, Dates,Distributed, LinearAlgebra, Distributions,ColorSchemes,PyCall
+pyplot() ; default(:palette,ColorSchemes.tab10.colors[1:10]); default(:box,true) ; default(:legend,:best) ; plot()
 SV = pyimport("sklearn.svm")
+np = pyimport("numpy")
 
 include("function_definitions.jl")
 
@@ -117,11 +117,35 @@ for j in eachindex(dimensions)
     savefig("Figures\\Laplace_Kernel\\testdelta")
 end
 
-# # α
-# alpha_mean_matrix = mean(abs.(clf.dual_coef_))
-# alpha_std_matrix  = std(abs.(clf.dual_coef_))
-# # r_c
-# sv = Xtrain[:,clf.support_ .+ 1]
-# rc_mean_matrix,rc_std_matrix= rc(sv,Δ0)
+## where are the SV ?
+d = 2
+Δ0 = 0.5
+Ptrain = 10000
+Ptest = Ptrain
+Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
 
-##
+clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
+GramTrain = Kernel_Matrix(Xtrain,Xtrain)
+clf.fit(GramTrain, Ytrain)
+
+sv = Xtrain[:,clf.support_ .+ 1]
+nsv = sum(clf.n_support_)
+svm = sv[:,1:clf.n_support_[1]]
+svp = sv[:,clf.n_support_[1]+1:end]
+
+# plot()
+# scatter!([Xtrain[1,i] for i in 1:Ptrain],[Xtrain[2,i] for i in 1:Ptrain],[Xtrain[3,i] for i in 1:Ptrain],label="Training Set",color=1,camera=(30,70),zlabel="x3")
+# # scatter!(svm[1,:],svm[2,:],svm[3,:],color=:red,label="Support Vectors Class  -1",camera=(30,70))
+# # scatter!(svp[1,:],svp[2,:],svp[3,:],color=:green,label="Support Vectors Class +1",camera=(30,70))
+# scatter!(sv[1,:],sv[2,:],sv[3,:],color=:red,label="Support Vectors Class  -1",camera=(30,70))
+# scatter!(svp[1,:],svp[2,:],svp[3,:],color=:green,label="Support Vectors Class  +1",camera=(30,70))
+# xlabel!("x1")
+# ylabel!("x2")
+# savefig("Figures\\whereSV.pdf")
+#
+#
+# scatter([svm[2,i] for i in 1:clf.n_support_[1]],[svm[3,i] for i in 1:clf.n_support_[1]],color=:red,label="Support Vectors Class  -1",camera=(30,70))
+# scatter!([svp[2,i] for i in 1:clf.n_support_[2]],[svp[3,i] for i in 1:clf.n_support_[2]],color=:green,label="Support Vectors Class +1",camera=(30,70))
+# xlabel!("x2")
+# ylabel!("x3")
+# savefig("Figures\\proj.png")

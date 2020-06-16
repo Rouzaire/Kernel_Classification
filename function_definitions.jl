@@ -24,9 +24,9 @@ end
 
     M = Int(ceil(2*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
     X = rand(MvNormal(zeros(d+1),I(d+1)),M)
-    for m in 1:M
-        X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
-    end
+    # for m in 1:M
+    #     X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
+    # end
     X = X[:,[Δ0/2 ≤ abs(X[1,i]) for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
     @assert length(X) ≥ Ptrain
     X = X[:,1:Ptrain]
@@ -34,7 +34,7 @@ end
     return X , generate_Y(X,Δ0)
 end
 
-@everywhere function generate_TestSet(Ptest::Int,d::Int,Δ0::Float64)
+@everywhere function generate_TestSet(Ptest::Int,Ptrain::Int,d::Int,Δ0::Float64)
     # 0<ξ<2 is the exponent governing the cusp (ξ=1 for Laplace kernel, ξ=2 for RBF/Gaussian kernel)
     # Note that ξ = min(2ν,2) for a kernel in the Matérn family
     # @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
@@ -43,7 +43,7 @@ end
         # they will be correctly classified. It has to be wide enough to be sure that
         # all misclassified points are contained and thin enough to save memory later
         # in the code
-    SVband = 0.2
+    SVband = min(0.2,2*Ptrain^(-d/(3d-2)))
     weight_band = 2SVband/(π - Δ0) # fraction of the surface occupied by this band (to weight the final result)
 
     M = Int(ceil(2*Ptest/weight_band/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
@@ -188,7 +188,7 @@ end
 
         for j in eachindex(dim)
             d = dim[j]
-            low = 1E2 ; high = 1E3
+            low = 1E2 ; high = 5E3
             Ptest = Int(round((min(high,max(Ptrain,low))))) # enforce low ≤ Ptest ≤ high
             # Ptest = 1000
             println("SVM for P = $Ptrain , Δ = $Δ0 , Time : "*string(Dates.hour(now()))*"h"*string(Dates.minute(now()))*" [d = $d]")
@@ -196,7 +196,7 @@ end
             for m in 1:M
                 ## If Kernel = Laplace
                     Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
-                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,d,Δ0)
+                    Xtest,Ytest,weight_band = generate_TestSet(Ptest,Ptrain,d,Δ0)
 
                     clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
                     GramTrain = Kernel_Matrix(Xtrain,Xtrain)
@@ -243,6 +243,18 @@ end
     elseif parallelized_over == "Δ" pmap(Run_fixed_delta,args...)
     end
 end
+
+@everywhere function extrapolate_root(X,h,xmin)
+    ind = 1
+    while X[ind]*X[ind+1] > 0
+        ind = ind + 1
+    end ## ind is now the index of the last negative value
+    v1 = X[ind]
+    v2 = X[ind+1]
+    @assert v1 < 0 ; @assert v2 > 0 ;
+    return xmin + ind*h -h*(v2+v1)/(v2-v1) # linear extrapolation of the root (where the decision boudary would have been =0)
+end
+
 
 ## Functions used for data analysis
 @everywhere function smooth(X) ## for smoother plots

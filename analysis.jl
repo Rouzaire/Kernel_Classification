@@ -147,19 +147,12 @@ pow_rc = -2 ./(3dimensions .- 3 .+ ξ)
 ## Investigation error as a function of the gap
 p = plot(legend=:best,xlabel="Δ0",ylabel="-log ϵ",title="Scaling of ϵ with the gap [P = 1000]")
 for j in 1:length(dimensions)
-    i=2
-    plot!(Δ[:],-log.(smooth(error_avg[i,:,j,1])),ribbon=1*error_std[i,:,j,1],yaxis=:log,color=j,label="d = $(dimensions[j])")
+    i=1
+    plot!(Δ[2:25],(smooth(error_avg[i,2:25,j,1])),ribbon=0*error_std[i,2:25,j,1],axis=:log,color=j,label="d = $(dimensions[j])")
     # savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
 end
-plot!(Δ[2:end], 3.3 .+ 2exp.(14*Δ[2:end]),yaxis=:log,color=:black)
+xlims!(0,0.12)
+plot!(Δ[2:25], 3.3 .+ 2exp.(14*Δ[2:25]),yaxis=:log,color=:black)
 display(p)
 
-## Investigation relation error and SVband
-p = plot(legend=:best,xlabel="Δ0",ylabel="-log ϵ",title="Scaling of ϵ with the gap [P = 1000]")
-for j in 1:length(dimensions)
-    i=2
-    plot!(Δ[:],-log.(smooth(error_avg[i,:,j,1])),ribbon=1*error_std[i,:,j,1],yaxis=:log,color=j,label="d = $(dimensions[j])")
-    # savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
-end
-plot!(Δ[2:end], 3.3 .+ 2exp.(14*Δ[2:end]),yaxis=:log,color=:black)
-display(p)
+log.(smooth(error_avg[i,2:25,j,1]))

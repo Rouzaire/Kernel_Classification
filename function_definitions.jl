@@ -249,16 +249,18 @@ end
     end
 end
 
-@everywhere function extrapolate_root(X,h,xmin)
-    ind = 1
-    while X[ind]*X[ind+1] > 0
-        ind = ind + 1
-        if ind ≥ length(X) return NaN end
-    end ## ind is now the index of the last negative value
-    v1 = X[ind]
-    v2 = X[ind+1]
-    @assert v1 < 0 ; @assert v2 > 0 ;
-    return xmin + (ind-1)*h -h*(v2+v1)/(v2-v1) # linear extrapolation of the root (where the decision boudary would have been =0)
+@everywhere function extrapolate_root(X::Array{Float64,1},h::Float64,xmin::Float64)
+    if X[1]*X[end] > 0 return NaN
+    else
+        ind = 1
+        while X[ind]*X[ind+1] > 0
+            ind = ind + 1
+        end ## ind is now the index of the last negative value
+        v1 = X[ind]
+        v2 = X[ind+1]
+        # @assert v1 < 0 ; @assert v2 > 0 ;
+        return xmin + (ind-1)*h -h*(v2+v1)/(v2-v1) # linear extrapolation of the root (where the decision boudary would have been =0)
+    end
 end
 
 

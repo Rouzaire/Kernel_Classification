@@ -145,14 +145,24 @@ pow_rc = -2 ./(3dimensions .- 3 .+ ξ)
 # end
 
 ## Investigation error as a function of the gap
-p = plot(legend=:best,xlabel="Δ0",ylabel="-log ϵ",title="Scaling of ϵ with the gap [P = 1000]")
+p = plot(legend=:topleft,xlabel="Δ0",ylabel="-log ϵ",title="Scaling of ϵ with the gap [P = 1000]")
+ind_max = minimum([findfirst(iszero,error_avg[i,:,j,1]) for j in 1:length(dimensions)]) - 1
 for j in 1:length(dimensions)
     i=1
-    plot!(Δ[2:25],(smooth(error_avg[i,2:25,j,1])),ribbon=0*error_std[i,2:25,j,1],axis=:log,color=j,label="d = $(dimensions[j])")
+    plot!(Δ[2:ind_max],-log.(smooth(error_avg[i,2:ind_max,j,1])),ribbon=0*error_std[i,2:ind_max,j,1],yaxis=:log,color=j,label="d = $(dimensions[j])")
     # savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
 end
+plot!(Δ[1:ind_max], 3 .+ 2.1exp.(13*Δ[1:ind_max]),yaxis=:log,color=:black)
 xlims!(0,0.12)
-plot!(Δ[2:25], 3.3 .+ 2exp.(14*Δ[2:25]),yaxis=:log,color=:black)
-display(p)
+savefig("Figures\\error_gap")
 
-log.(smooth(error_avg[i,2:25,j,1]))
+## Investigation relation Erorr SVband
+p = plot(legend=:topleft,xlabel="Δ0",ylabel="-log ϵ",title="Relation bewteen ϵ and Δ ")
+for j in 1:length(dimensions)
+    i=1
+    plot!(delta_mean_avg[i,:,j,1],(smooth(error_avg[i,:,j,1])),ribbon=0*error_std[i,:,j,1],color=j,label="d = $(dimensions[j])")
+    # savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
+end
+# plot!(Δ[1:25], 3 .+ 2.1exp.(13*Δ[1:25]),yaxis=:log,color=:black)
+# xlims!(0,0.12)
+savefig("Figures\\test")

@@ -13,7 +13,8 @@ The project is small enough for the code to be organized as follows :
 * The `main.jl` defines the keys arguments, among them the number of statistics to collect and distributes the work on different processors thanks to the function `Run`. The user is free to choose, depending on its machine and the desired input parameters, whether to parallelize with respect to the gap or with respect to the dimensions.
     * The function `Run` calls the correct function depending on what the user wants to parallelize wrt : `Run_fixed_delta` if wrt gap or `Run_fixed_dimension` if wrt dimension
 * The data is saved in JLD files by these 2 functions so that the analysis can be performed later by the `analysis.jl` file.
-* The `benchmark.jl` is a test file and therefore may contain deprecated syntax.
+* The `benchmark.jl` is a test file and _may contain deprecated syntax_.
+* The `decision_boundary.jl` aims at investigating the effect of a gap on the decision function (f) and thus on the prediction (sign of f). Note that resulting pdf figures can be quite heavy (~10Mo) when using moderatly fine grids.
 
 ## Generation of the data
 
@@ -35,7 +36,9 @@ Note that the labeling is internally handled by the `generate_Y` function.
 
 * The code is designed to collect statistics by running M independent realisations. 20 - 40 realisations should be sufficient for smooth curves and small standard deviation for most of problems.
 
-* The leading term in runtime complexity is O(#dimensions * #gaps * P^2 * M). If using the default Gaussian kernel of the classifier, the code is about 100x faster than if using a precomputed kernel because the precomputation of the Gram Matrix handled by `Kernel_Matrix` must be less optimized.
+* The leading term in runtime complexity is O(#dimensions * #gaps * P^2 * M). If using the default Gaussian kernel of the classifier, the code is about 100x faster than if using a precomputed kernel because the precomputation of the Gram Matrix handled by `Kernel_Matrix` must be less optimized (for instance, the entire matrix is created and stored in memory, there must be a more clever way).
+
+
 
 
 ## Bibliography

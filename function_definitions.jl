@@ -24,9 +24,9 @@ end
 
     M = Int(ceil(2*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
     X = rand(MvNormal(zeros(d+1),I(d+1)),M)
-    # for m in 1:M
-    #     X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
-    # end
+    for m in 1:M
+        X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
+    end
     X = X[:,[Δ0/2 ≤ abs(X[1,i]) for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
     @assert length(X) ≥ Ptrain
     X = X[:,1:Ptrain]
@@ -248,6 +248,38 @@ end
     elseif parallelized_over == "Δ" pmap(Run_fixed_delta,args...)
     end
 end
+# end of functions used in main.jl
+
+## Functions used in decision_boundary.jl to generate the meshgrid and to compute the subspace where f(x,y) = 0
+@everywhere function grid_2D_plane(Δ0,a,h)
+    nx = Int((2a + Δ0)/h)+1 ; ny = nh
+    grid = Array{Array{Float64,1},2}(undef,ny,nx) # [x,y] coord. of every point on the grid
+    for i=1:ny , j=1:nx
+        grid[i,j] = [h*(j-1) - a - Δ0/2,1-h*i] ## one only constructs points such that -a < x < a and -1 < y < 1
+    end
+    Xtest = Array{Float64,2}(undef,2,length(grid)) # necessary format to be accepted by Kernel_Matrix(.,.)
+    for i in eachindex(grid)
+        Xtest[:,i] = grid[i]
+    end
+    return Xtest
+end
+
+@everywhere function grid_2D_sphere(a,N=Int(1E6)) ## implements the Fibonacci (usual 2D) unit sphere restreigned -a < x < a   N = number of points
+    indices = 1:N
+    theta = acos.(1 .- 2*indices/N)
+    phi = pi * (1 + sqrt(5)) * indices
+    x, y, z = cos.(phi) .* sin.(theta), sin.(phi) .* sin.(theta), cos.(theta)
+
+    Xtest = Array{Float64,2}(undef,3,N) # necessary format to be accepted by Kernel_Matrix(.,.)
+    Xtest[1,:] = x ; Xtest[2,:] = y ; Xtest[3,:] = z
+
+    Xtest = Xtest[:,sortperm(Xtest[1,:])] ## sort points in order of increasing x1
+    ind_min = findfirst(x -> x>-a,Xtest[1,:]) + 1
+    ind_max = findfirst(x -> x>+a,Xtest[1,:]) - 1
+    Xtest = Xtest[:,ind_min:ind_max] ## keep only points in -a < x < a for efficiency
+
+    return Xtest ## Expectation[length(Xtest)] = aN and it turns out the Variance is ridiculously low
+end
 
 @everywhere function extrapolate_root(X::Array{Float64,1},h::Float64,xmin::Float64)
     if X[1]*X[end] > 0 return NaN
@@ -263,6 +295,58 @@ end
     end
 end
 
+@everywhere function extrapolate_root_sphere_aux(clf::PyObject, Xtrain::Matrix{Float64},Xtest::Matrix{Float64},y::Float64,z::Float64,tol::Float64=4E-2)
+    ## Next line of code will construct a thin (width = tol) layer : it will play the role of the regularly spaced layer in the 2D plane case.
+        ## To do so, only keep data points such that |y* - y| < tol/2. If one only did that, one would end up with data whose z corrdinate can be
+        ## both positive and negative. Since we do not want that in order to construct the vecteor f0 in the correct ordering, we select data that
+        ## have the same signe as z. Here,         ".*" plays the role of an AND boolean function.
+    X    = Xtest[:,(abs.(Xtest[2,:] .- y) .< tol/2) .* Bool.((1 .+ sign.(z*Xtest[3,:]))/2) ]
+    Gram = Kernel_Matrix(Xtrain,X)
+    f    = clf.decision_function(Gram) # if this line throws an error, it is probably because X is empty -> not enough training point AND/OR tol too low
+
+    # starts looking for the location of the change of sign of the decision_function = change in prediction
+    if f[1]*f[end] > 0  return NaN # decision function does not change sign (and it cannot change twice)
+    else
+        ind = 1
+        while f[ind]*f[ind+1] > 0
+            ind = ind + 1
+        end ## ind is now the index of the last negative value of decision_function
+        v1 = f[ind]
+        v2 = f[ind+1]
+        h  = X[1,ind+1] - X[1,ind] # distance in the x direction between the last negative value and the first positive value
+        # @assert v1 < 0 ; @assert v2 > 0  # for benchmarks
+        return X[1,ind] -h*(v2+v1)/(v2-v1) # X[1,ind] is the x value of the last negative value of decision_function
+    end
+end
+
+
+@everywhere function extrapolate_root_sphere(clf::PyObject, Xtrain::Matrix{Float64},Xtest::Matrix{Float64})::Vector{Float64}
+    # Arbitrary tolerance (= width of the slices.) 
+        # If too big, result will be less precise.
+        # If too small, runtime increases (linearly in 1/tol).
+        # If extremely small, risk of have slices with no datapoints.
+    tol = 1E-2
+    f0 = zeros(length(1-tol:-tol:tol-1) + length(2tol-1:tol:1-2tol))
+    i = 1 # index unsed in the following for loops to fill up f0
+    ## We place ourselves in the y-z plane.
+    ## Since the sphere is periodic, we arbitrarily choose to construct the upper hemisphere
+
+    ## We start with the z>0 hemisphere
+    for y in 1-tol:-tol:tol-1
+        z = sqrt(1-y^2) ## actually, only the sign of z matters
+        f0[i] = extrapolate_root_sphere_aux(clf,Xtrain,Xtest,y,z,tol)
+        i = i + 1
+    end
+
+    ## We finish by the z<0 hemisphere
+    for y in 2tol-1:tol:1-2tol
+        z = -sqrt(1-y^2) ## actually, only the sign of z matters
+        f0[i] = extrapolate_root_sphere_aux(clf,Xtrain,Xtest,y,z,tol)
+        i = i + 1
+    end
+    # @assert i-1 == length(f0) # for benchmarks
+    return f0
+end
 
 ## Functions used for data analysis
 @everywhere function smooth(X) ## for smoother plots

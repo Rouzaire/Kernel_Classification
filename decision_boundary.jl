@@ -2,7 +2,7 @@ cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
 using Pkg; Pkg.activate("."); Pkg.instantiate();
 cd("D:\\Documents\\Ecole\\EPFL\\Internship_2019_ML\\Kernel Classification SVM")
 using Plots, SpecialFunctions, JLD, Dates,Distributed, LinearAlgebra, Distributions,ColorSchemes,PyCall,StatsBase
-pyplot() ; default(:palette,ColorSchemes.tab10.colors[1:10]); default(:box,true) ; default(:legend,:topright) ; default(:grid,false) ; plot()
+pyplot() ; default(:palette,ColorSchemes.tab10.colors[1:10]); default(:box,true) ; default(:legend,:topright) ; default(:grid,false) ; default(:markerstrokecolor,:auto) ; plot()
 SV = pyimport("sklearn.svm")
 include("function_definitions.jl")
 ## This file is meant to investigate the change (if any) in the behaviour
@@ -31,19 +31,10 @@ clf.fit(GramTrain, Ytrain)
 # Note : the finer the meshgrid, the larger the number of points and the plotting can take enormous time
 h = 0.01; nh = Int(2/h) # meshgrid for testing points in order to visualise f
 a = 0.1
-nx = Int((2a + Δ0)/h)+1 ; ny = nh
-grid = Array{Array{Float64,1},2}(undef,ny,nx) # [x,y] coord. of every point on the grid
-for i=1:ny , j=1:nx
-    grid[i,j] = [h*(j-1) - a - Δ0/2,1-h*i] ## one only constructs points such that -a < x < a and -1 < y < 1
-end
-Xtest = Array{Float64,2}(undef,2,length(grid)) # necessary format to be accepted by Kernel_Matrix(.,.)
-for i in eachindex(grid)
-    Xtest[:,i] = grid[i]
-end
-GramTest = Kernel_Matrix(Xtrain,Xtest)
+
+GramTest  = Kernel_Matrix(Xtrain,Xtest)
 f = clf.decision_function(GramTest)
 pred = clf.predict(GramTest)
-
 
 surface(Xtest[1,:],Xtest[2,:],f,camera=c1,xlabel="x",ylabel="y",zlabel="f(x,y)",title="Δ0 = $Δ0")
 savefig("Figures\\Decision_boundary\\Gap_P"*string(Ptrain)*"_c1")
@@ -112,7 +103,7 @@ savefig("Figures\\Decision_boundary\\Gap_P"*string(Ptrain)*"_pred.pdf")
 # end ## \Delta0
 # JLD.save("Data\\Decision_Boundary\\f0.jld","f0",f0,"gap",gap,"M",M,"h",h,"a",0.5 .- gap,"PP",PP)
 
-# Analysis of data
+## Analysis of data
 # data = load("Data\\Decision_Boundary\\f0.jld")
 # M    = data["M"]
 # gap  = data["gap"]
@@ -122,7 +113,8 @@ savefig("Figures\\Decision_boundary\\Gap_P"*string(Ptrain)*"_pred.pdf")
 # a    = data["a"]
 # f0   = data["f0"] # dim1 = Δ0 ; dim2 = Ptrain ;dim3 = M real ; dim4 = f0 along y axis
 # f0c = abs.(f0 .- mean(f0,dims=4))
-# # One example :
+
+# One example :
 # for a = [1,3,5] , b = [1,10]
 #     p = plot(xlabel="x",ylabel="y",title="Examples of Decision Boundaries",legend=:topright)
 #     if gap[a] > 0
@@ -169,4 +161,199 @@ savefig("Figures\\Decision_boundary\\Gap_P"*string(Ptrain)*"_pred.pdf")
 #     end
 #     savefig("Figures\\Decision_boundary\\hist_P_gap$(gap[i])")
 #     savefig("Figures\\Decision_boundary\\hist_P_gap$(gap[i]).pdf")
+# end
+
+## Spatial Correlation of decision boundary f(y)
+# corr_Matrix = zeros(size(f0))
+# lags = 0:length(f0[1,1,1,:])-1
+# for i in 1:size(f0)[1] , j in 1:size(f0)[2] , m in 1:size(f0)[3]
+#     corr_Matrix[i,j,m,:] = StatsBase.autocor(f0[i,j,m,:],lags,demean=true) # "demean=true" centers the data
+# end
+# corr_Matrix
+# corr = mean(corr_Matrix,dims=3) ## pb de nan pour les deux premières valeurs de P
+#
+# for i in 1:size(f0)[1]
+#     plot(xlabel="τ",ylabel="C(τ)",title="Δ0 = $(gap[i])",ylims=(-0.25,1))
+#     for j in 3:size(f0)[2]
+#         plot!(lags/length(lags)*2,corr[i,j,1,:],label="P = $(PP[j])")
+#     end
+#     plot!(lags/length(lags)*2,zeros(length(lags)),color=:grey,linestyle=:dash,label="")
+#     savefig("Figures\\autocorrelation_gap$(gap[i])")
+# end
+#
+# for j in 3:size(f0)[2]
+#     plot(xlabel="τ",ylabel="C(τ)",title="P = $(PP[j])",ylims=(-0.25,1))
+#     for i in 1:size(f0)[1]
+#         plot!(lags/length(lags)*2,corr[i,j,1,:],label="Δ0 = $(gap[i])")
+#     end
+#     plot!(lags/length(lags)*2,zeros(length(lags)),color=:grey,linestyle=:dash,label="")
+#     savefig("Figures\\autocorrelation_P$(PP[j])")
+# end
+
+## D'après ces figures, il se pourrait que le kernel isotrope sous-jacent soit : (reference = https://www.nr.no/directdownload/2437/Abrahamsen_-_A_Review_of_Gaussian_random_fields_and_correlation.pdf)
+    # (1-ax)exp(-ax), sa FT est positive donc PDness OK
+    # damped sth (damped sin ?)
+    # un simple laplace (il y a peut etre des pb avec le fait que les données ne soient pas périodiques)
+# Essayons de tirer des realisations de chacun de ces kernels pour voir
+k(h) = sinc(h*2pi)
+# k(h) = 1exp(-h^2/2*40)
+# # k(h) = (1-2h)*exp(-h/100)
+function Gram(X)
+    K = 1E-5 .+ ones(length(X),length(X))
+    for i=1:length(X) , j = i+1:length(X)
+        K[i,j] = k(abs(X[i]-X[j]))
+    end
+    return Symmetric(K)
+end
+X = 0:0.01:1
+L = length(X)
+Z = rand(MvNormal(zeros(L),Gram(X)),5)
+plot(X,Z)
+savefig("Figures\\testZ")
+
+## Let's try to see if these results change when the datat is ~ Uniform on the unit sphere
+    gap = 0.5
+    Xtrain,Ytrain = generate_TrainSet(400,2,gap) # trainset uniform on the 2D sphere
+    clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000)
+    GramTrain = Kernel_Matrix(Xtrain)
+    clf.fit(GramTrain, Ytrain)
+    predTrain = clf.predict(GramTrain)
+    # scatter(Xtrain[1,:],Xtrain[2,:],Xtrain[3,:],color=predTrain .+ 3,xlabel="x",ylabel="y",zlabel="f(x,y)",camera=c1)
+    # savefig("Figures\\tests")
+
+    a = 0.25  ## keep only points such that -a < x < a for efficiency
+    Xtest = grid_2D_sphere(a,Int(1E6)) # testset almost uniform on the 2D sphere (Fibonacci sphere) # NB : runtime linear in number of test points
+    GramTest = Kernel_Matrix(Xtrain,Xtest)
+    predTest = clf.predict(GramTest)
+    # scatter(Xtest[1,:],Xtest[2,:],Xtest[3,:],xlabel="x",ylabel="y",zlabel="z",label="")
+    # scatter(Xtest[1,:],Xtest[2,:],Xtest[3,:],color=predTest .+ 2,xlabel="x",ylabel="y",zlabel="f(x,y)",ms=1.5,camera=(0,90))
+    # savefig("Figures\\tests")
+    # @time @gif for i in 0:2:360
+    #     scatter!(camera=(0,i))
+    # end
+
+    @time f0 = extrapolate_root_sphere(clf,Xtrain,Xtest)
+    plot(1:length(f0),f0)
+    savefig("Figures\\testf")
+
+    lags = 0:length(filter(!isnan,f0))-1
+
+    c = autocor(filter(!isnan,f0),lags,demean=true)
+
+    plot(c)
+    savefig("Figures\\testc")
+
+
+# Accumulate stats in order to have meaningful histograms
+M = 4
+gap = [0.0, 0.5]
+PP = Int.(round.(10.0 .^range(log10(20),stop=log10(100),length=5))) ## the larger P, the closer is the decision function f to the interface
+# Creation of the testing "grid" such that -a < x < a
+    a = 0.5 ; N = Int(1E5) ; Xtest = grid_2D_sphere(a,N) # Note : Expectation[length(Xtest)] = aN
+
+f0 = zeros(length(gap),length(PP),M,396) ## 396 is the length of the returned array of function extrapolate_root_sphere
+@time for i in eachindex(gap)
+    for j in eachindex(PP)
+        Δ0 = gap[i]
+        Ptrain = PP[j]
+
+        for m in 1:M
+            println("Gap = $Δ0, P = $Ptrain, M = $m/$M ")
+            # Generating data ~Uniform([-1,1]²) with gap Δ0 at the interface
+            Xtrain,Ytrain = generate_TrainSet(Ptrain,2,Δ0) # trainset uniform on the 2D sphere
+
+            clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=2000)
+            clf.fit(Kernel_Matrix(Xtrain), Ytrain)
+            f = clf.decision_function(Kernel_Matrix(Xtrain,Xtest))
+            f0[i,j,m,:] = extrapolate_root_sphere(clf,Xtrain,Xtest)
+        end #M
+    end # PP
+end ## \Delta0
+JLD.save("Data\\Decision_Boundary\\f0_sphere.jld","f0",f0,"gap",gap,"M",M,"a",a,"N",N,"PP",PP)
+
+## Analysis of data
+data = load("Data\\Decision_Boundary\\f0_sphere.jld")
+M    = data["M"]
+gap  = data["gap"]
+PP   = data["PP"]
+a    = data["a"]
+f0   = data["f0"] # dim1 = Δ0 ; dim2 = Ptrain ;dim3 = M real ; dim4 = f0
+f0c = abs.(f0 .- mean(f0,dims=4))
+
+# One example :
+# for aa = [1,2] , b = [1]
+#     p = plot(xlabel="x",ylabel="y",title="Examples of Decision Boundaries",legend=:topright)
+#     if gap[aa] > 0
+#         plot!(range(-gap[aa]/2,stop=gap[aa]/2,length=100),fill(1,100),color=:grey,fill=(0,0.25,:grey),label="Gap at interface")
+#         plot!(range(-gap[aa]/2,stop=gap[aa]/2,length=100),fill(-1,100),color=:grey,fill=(0,0.25,:grey),label="")
+#     end
+#     xlims!(-0.5,0.5)
+#     for i in 1:4
+#         plot!(f0[aa,b,i,:],-a:2a/size(f0)[end]:a,linestyle=:solid,color=i,label="") # ,markersize=1,marker=:o P = $(PP[b]) , Gap Δ0 = $(gap[aa])
+#     end
+#     # savefig("Figures\\Decision_boundary\\examples_P = $(PP[b]) , Gap Δ0 = $(gap[a]).pdf")
+#     # savefig("Figures\\Decision_boundary\\examples_P = $(PP[b]) , Gap Δ0 = $(gap[a])")
+#     savefig("Figures\\Decision_boundary\\test = $(PP[b]) , Gap Δ0 = $(gap[aa])")
+# end
+""
+# hP = Array{Any,2}(undef,length(gap),length(PP))
+# println()
+# for i in eachindex(gap), j in eachindex(PP)
+#     try
+#         hP[i,j] = normalize(fit(Histogram,abs.(vec(f0[i,j,:,:])),closed=:right),mode=:density)
+#         # append!(hP[i,j].weights,Int(ceil(hP[i,j].weights[end]/2)))
+#     catch
+#         println(i,",",j)
+#     end
+# end
+#
+# for j in eachindex(PP)
+#     p = plot(xlabel="|x*| such that f(x*,y) = 0",ylabel="Probability",title="P = $(PP[j])",legend=:topright)
+#     for i in 1:length(gap)
+#         try
+#             plot!(hP[i,j].edges,hP[i,j].weights,color=i,yaxis=:log,label="Δ0 = $(gap[i])")
+#         catch
+#         end
+#     end
+#     savefig("Figures\\Decision_boundary\\testhist_gap_P$(PP[j])")
+#     # savefig("Figures\\Decision_boundary\\hist_gap_P$(PP[j]).pdf")
+# end
+#
+# for i in eachindex(gap)
+#     p = plot(xlabel="|x*| such that f(x*,y) = 0",ylabel="Probability",title="Δ0 = $(gap[i])",legend=:topright)
+#     for j in 2:length(PP)
+#         try
+#             plot!(hP[i,j].edges,hP[i,j].weights,color=j,yaxis=:log,label="P = $(Int(round(PP[j],digits=-1)))")
+#         catch
+#         end
+#     end
+#     savefig("Figures\\Decision_boundary\\hist_P_gap$(gap[i])")
+#     savefig("Figures\\Decision_boundary\\hist_P_gap$(gap[i]).pdf")
+# end
+
+## Spatial Correlation of decision boundary f(y)
+corr_Matrix = zeros(size(f0))
+lags = 0:length(f0[1,1,1,:])-1
+for i in 1:size(f0)[1] , j in 1:size(f0)[2] , m in 1:size(f0)[3]
+    corr_Matrix[i,j,m,:] = StatsBase.autocor(f0[i,j,m,:],lags,demean=true) # "demean=true" centers the data
+end
+corr_Matrix
+corr = mean(corr_Matrix,dims=3) ## pb de nan pour les deux premières valeurs de P
+
+for i in 1:size(f0)[1]
+    plot(xlabel="τ",ylabel="C(τ)",title="Δ0 = $(gap[i])",ylims=(-0.25,1))
+    for j in 3:size(f0)[2]
+        plot!(lags/length(lags)*2,corr[i,j,1,:],label="P = $(PP[j])")
+    end
+    plot!(lags/length(lags)*2,zeros(length(lags)),color=:grey,linestyle=:dash,label="")
+    savefig("Figures\\testautocorrelation_gap$(gap[i])")
+end
+
+# for j in 3:size(f0)[2]
+#     plot(xlabel="τ",ylabel="C(τ)",title="P = $(PP[j])",ylims=(-0.25,1))
+#     for i in 1:size(f0)[1]
+#         plot!(lags/length(lags)*2,corr[i,j,1,:],label="Δ0 = $(gap[i])")
+#     end
+#     plot!(lags/length(lags)*2,zeros(length(lags)),color=:grey,linestyle=:dash,label="")
+#     savefig("Figures\\autocorrelation_P$(PP[j])")
 # end

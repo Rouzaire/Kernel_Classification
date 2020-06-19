@@ -149,20 +149,20 @@ p = plot(legend=:topleft,xlabel="Δ0",ylabel="-log ϵ",title="Scaling of ϵ with
 ind_max = minimum([findfirst(iszero,error_avg[i,:,j,1]) for j in 1:length(dimensions)]) - 1
 for j in 1:length(dimensions)
     i=1
-    plot!(Δ[2:ind_max],-log.(smooth(error_avg[i,2:ind_max,j,1])),ribbon=0*error_std[i,2:ind_max,j,1],yaxis=:log,color=j,label="d = $(dimensions[j])")
+    plot!(Δ[2:ind_max],(smooth(error_avg[i,2:ind_max,j,1])),ribbon=0*error_std[i,2:ind_max,j,1],yaxis=:log,color=j,label="d = $(dimensions[j])")
     # savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
 end
-plot!(Δ[1:ind_max], 3 .+ 2.1exp.(13*Δ[1:ind_max]),yaxis=:log,color=:black)
+plot!(Δ[1:ind_max], 3 .+ 2.1exp.(13*Δ[1:ind_max]),yaxis=:log,color=:black,label="y = 3 + 2 exp(13 Δ)")
 xlims!(0,0.12)
-savefig("Figures\\error_gap")
+savefig("Figures\\relation_error_gap")
 
 ## Investigation relation Erorr SVband
-p = plot(legend=:topleft,xlabel="Δ0",ylabel="-log ϵ",title="Relation bewteen ϵ and Δ ")
+p = plot(legend=:topleft,xlabel="Δ0",ylabel="log(-log ϵ)",title="Relation between ϵ and Δ ")
 for j in 1:length(dimensions)
     i=1
-    plot!(delta_mean_avg[i,:,j,1],(smooth(error_avg[i,:,j,1])),ribbon=0*error_std[i,:,j,1],color=j,label="d = $(dimensions[j])")
+    plot!(delta_mean_avg[i,2:ind_max,j,1],log.(-log.(smooth(error_avg[i,2:ind_max,j,1]))),ribbon=0*error_std[i,:,j,1],color=j,label="d = $(dimensions[j])")
     # savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
 end
 # plot!(Δ[1:25], 3 .+ 2.1exp.(13*Δ[1:25]),yaxis=:log,color=:black)
 # xlims!(0,0.12)
-savefig("Figures\\test")
+savefig("Figures\\relation_error_svband")

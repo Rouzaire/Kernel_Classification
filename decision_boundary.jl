@@ -195,7 +195,7 @@ savefig("Figures\\Decision_boundary\\Gap_P"*string(Ptrain)*"_pred.pdf")
     # damped sth (damped sin ?)
     # un simple laplace (il y a peut etre des pb avec le fait que les données ne soient pas périodiques)
 # Essayons de tirer des realisations de chacun de ces kernels pour voir
-k(h) = sinc(h*2pi)
+k(h) = sinc(h*10pi)
 # k(h) = 1exp(-h^2/2*40)
 # # k(h) = (1-2h)*exp(-h/100)
 function Gram(X)
@@ -205,43 +205,45 @@ function Gram(X)
     end
     return Symmetric(K)
 end
-X = 0:0.01:1
+X = 0:0.005:1
 L = length(X)
 Z = rand(MvNormal(zeros(L),Gram(X)),5)
 plot(X,Z)
 savefig("Figures\\testZ")
 
 ## Let's try to see if these results change when the datat is ~ Uniform on the unit sphere
-    gap = 0.5
-    Xtrain,Ytrain = generate_TrainSet(400,2,gap) # trainset uniform on the 2D sphere
-    clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000)
-    GramTrain = Kernel_Matrix(Xtrain)
-    clf.fit(GramTrain, Ytrain)
-    predTrain = clf.predict(GramTrain)
-    # scatter(Xtrain[1,:],Xtrain[2,:],Xtrain[3,:],color=predTrain .+ 3,xlabel="x",ylabel="y",zlabel="f(x,y)",camera=c1)
-    # savefig("Figures\\tests")
+gap = 0.0
+Xtrain,Ytrain = generate_TrainSet(50,2,gap) # trainset uniform on the 2D sphere
+clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000)
+GramTrain = Kernel_Matrix(Xtrain)
+clf.fit(GramTrain, Ytrain)
+predTrain = clf.predict(GramTrain)
+# scatter(Xtrain[1,:],Xtrain[2,:],Xtrain[3,:],color=predTrain .+ 3,xlabel="x",ylabel="y",zlabel="f(x,y)",camera=c1)
+# savefig("Figures\\tests")
 
-    a = 0.25  ## keep only points such that -a < x < a for efficiency
-    Xtest = grid_2D_sphere(a,Int(1E6)) # testset almost uniform on the 2D sphere (Fibonacci sphere) # NB : runtime linear in number of test points
-    GramTest = Kernel_Matrix(Xtrain,Xtest)
-    predTest = clf.predict(GramTest)
-    # scatter(Xtest[1,:],Xtest[2,:],Xtest[3,:],xlabel="x",ylabel="y",zlabel="z",label="")
-    # scatter(Xtest[1,:],Xtest[2,:],Xtest[3,:],color=predTest .+ 2,xlabel="x",ylabel="y",zlabel="f(x,y)",ms=1.5,camera=(0,90))
-    # savefig("Figures\\tests")
-    # @time @gif for i in 0:2:360
-    #     scatter!(camera=(0,i))
-    # end
+a = 0.25 ## keep only points such that -a < x < a for efficiency
+Xtest = grid_2D_sphere(a,Int(1E5)) # testset almost uniform on the 2D sphere (Fibonacci sphere) # NB : runtime linear in number of test points
+GramTest = Kernel_Matrix(Xtrain,Xtest)
+predTest = clf.predict(GramTest)
+# scatter(Xtest[1,:],Xtest[2,:],Xtest[3,:],xlabel="x",ylabel="y",zlabel="z",label="",ms=3)
+scatter(Xtest[1,:],Xtest[2,:],Xtest[3,:],color=predTest .+ 3,xlabel="x",ylabel="y",zlabel="f(x,y)",label="",ms=1.5,camera=(0,40))
+scatter!([NaN,NaN],[NaN,NaN],m=:o,color=2,label="Predicted -1")
+scatter!([NaN,NaN],[NaN,NaN],m=:o,color=4,label="Predicted +1")
+savefig("Figures\\Report\\prediction_sphere_zoom.pdf")
+# @time @gif for i in 0:2:360
+#     scatter!(camera=(0,i))
+# end
 
-    @time f0 = extrapolate_root_sphere(clf,Xtrain,Xtest)
-    plot(1:length(f0),f0)
-    savefig("Figures\\testf")
+@time f0 = extrapolate_root_sphere(clf,Xtrain,Xtest)
+plot(1:length(f0),f0)
+savefig("Figures\\testf")
 
-    lags = 0:length(filter(!isnan,f0))-1
+lags = 0:length(filter(!isnan,f0))-1
 
-    c = autocor(filter(!isnan,f0),lags,demean=true)
+c = autocor(filter(!isnan,f0),lags,demean=true)
 
-    plot(c)
-    savefig("Figures\\testc")
+plot(c)
+savefig("Figures\\testc")
 
 
 # Accumulate stats in order to have meaningful histograms

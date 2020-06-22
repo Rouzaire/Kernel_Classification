@@ -321,7 +321,7 @@ end
 
 
 @everywhere function extrapolate_root_sphere(clf::PyObject, Xtrain::Matrix{Float64},Xtest::Matrix{Float64})::Vector{Float64}
-    # Arbitrary tolerance (= width of the slices.) 
+    # Arbitrary tolerance (= width of the slices.)
         # If too big, result will be less precise.
         # If too small, runtime increases (linearly in 1/tol).
         # If extremely small, risk of have slices with no datapoints.

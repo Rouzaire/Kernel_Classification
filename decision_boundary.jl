@@ -1,7 +1,7 @@
 cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
 using Pkg; Pkg.activate("."); Pkg.instantiate();
 cd("D:\\Documents\\Ecole\\EPFL\\Internship_2019_ML\\Kernel Classification SVM")
-using Plots, SpecialFunctions, JLD, Dates,Distributed, LinearAlgebra, Distributions,ColorSchemes,PyCall,StatsBase
+using Distributed, Plots, SpecialFunctions, JLD, Dates, LinearAlgebra, Distributions,ColorSchemes,PyCall,StatsBase,SharedArrays
 pyplot() ; default(:palette,ColorSchemes.tab10.colors[1:10]); default(:box,true) ; default(:legend,:topright) ; default(:grid,false) ; default(:markerstrokecolor,:auto) ; plot()
 SV = pyimport("sklearn.svm")
 include("function_definitions.jl")
@@ -104,15 +104,14 @@ savefig("Figures\\Decision_boundary\\Gap_P"*string(Ptrain)*"_pred.pdf")
 # JLD.save("Data\\Decision_Boundary\\f0.jld","f0",f0,"gap",gap,"M",M,"h",h,"a",0.5 .- gap,"PP",PP)
 
 ## Analysis of data
-# data = load("Data\\Decision_Boundary\\f0.jld")
-# M    = data["M"]
-# gap  = data["gap"]
-# gap  = [0.0, 0.1, 0.2, 0.3, 0.5]
-# PP   = data["PP"]
-# h    = data["h"]
-# a    = data["a"]
-# f0   = data["f0"] # dim1 = Δ0 ; dim2 = Ptrain ;dim3 = M real ; dim4 = f0 along y axis
-# f0c = abs.(f0 .- mean(f0,dims=4))
+data = load("Data\\Decision_Boundary\\f0.jld")
+M    = data["M"]
+gap  = vec(data["gap"])
+PP   = data["PP"]
+h    = data["h"]
+a    = data["a"]
+f0   = data["f0"] # dim1 = Δ0 ; dim2 = Ptrain ;dim3 = M real ; dim4 = f0 along y axis
+f0c = abs.(f0 .- mean(f0,dims=4))
 
 # One example :
 # for a = [1,3,5] , b = [1,10]
@@ -245,13 +244,12 @@ c = autocor(filter(!isnan,f0),lags,demean=true)
 plot(c)
 savefig("Figures\\testc")
 
-
 # Accumulate stats in order to have meaningful histograms
-M = 4
-gap = [0.0, 0.5]
-PP = Int.(round.(10.0 .^range(log10(20),stop=log10(100),length=5))) ## the larger P, the closer is the decision function f to the interface
+M = 100
+gap = [0.0,0.1,0.2,0.3,0.5]
+PP = Int.(round.(10.0 .^range(log10(30),stop=log10(400),length=10))) ## the larger P, the closer is the decision function f to the interface
 # Creation of the testing "grid" such that -a < x < a
-    a = 0.5 ; N = Int(1E5) ; Xtest = grid_2D_sphere(a,N) # Note : Expectation[length(Xtest)] = aN
+    a = 0.25 ; N = Int(1E5) ; Xtest = grid_2D_sphere(a,N) # Note : Expectation[length(Xtest)] = aN
 
 f0 = zeros(length(gap),length(PP),M,396) ## 396 is the length of the returned array of function extrapolate_root_sphere
 @time for i in eachindex(gap)
@@ -260,7 +258,7 @@ f0 = zeros(length(gap),length(PP),M,396) ## 396 is the length of the returned ar
         Ptrain = PP[j]
 
         for m in 1:M
-            println("Gap = $Δ0, P = $Ptrain, M = $m/$M ")
+            println("Gap = $Δ0, P = $Ptrain, M = $m/$M")
             # Generating data ~Uniform([-1,1]²) with gap Δ0 at the interface
             Xtrain,Ytrain = generate_TrainSet(Ptrain,2,Δ0) # trainset uniform on the 2D sphere
 
@@ -297,6 +295,13 @@ f0c = abs.(f0 .- mean(f0,dims=4))
 #     # savefig("Figures\\Decision_boundary\\examples_P = $(PP[b]) , Gap Δ0 = $(gap[a])")
 #     savefig("Figures\\Decision_boundary\\test = $(PP[b]) , Gap Δ0 = $(gap[aa])")
 # end
+
+# plot(xlabel="P",ylabel="Maximum amplitude of f0")
+# for i in 1:length(gap)
+#     plot!(PP,mean(mean(abs.(f0),dims=4),dims=3)[i,:],ribbon = 0.25std(mean(abs.(f0),dims=4),dims=3)[i,:],label="Gap = $(gap[i])",axis=:log)
+# end
+# plot!(PP, PP .^(-1/2),color=:black,ls=:dash,label="1/√P")
+# savefig("Figures\\amplitude.pdf")
 ""
 # hP = Array{Any,2}(undef,length(gap),length(PP))
 # println()
@@ -343,14 +348,21 @@ corr_Matrix
 corr = mean(corr_Matrix,dims=3) ## pb de nan pour les deux premières valeurs de P
 
 for i in 1:size(f0)[1]
-    plot(xlabel="τ",ylabel="C(τ)",title="Δ0 = $(gap[i])",ylims=(-0.25,1))
+    plot(xlabel="τ",ylabel="C(τ)",title="Δ0 = $(gap[i])")
+    # plot(xlabel="τ",ylabel="C(τ)",title="Δ0 = $(gap[i])",ylims=(-0.25,1))
     for j in 3:size(f0)[2]
         plot!(lags/length(lags)*2,corr[i,j,1,:],label="P = $(PP[j])")
     end
     plot!(lags/length(lags)*2,zeros(length(lags)),color=:grey,linestyle=:dash,label="")
     savefig("Figures\\testautocorrelation_gap$(gap[i])")
 end
-
+plot()
+for k in 1:10
+    c = autocorrelation(filter(!isnan,f0[1,1,k,:]))
+# x = (f0[1,1,2,:])
+    plot!(c)
+end
+savefig("Figures\\testt")
 # for j in 3:size(f0)[2]
 #     plot(xlabel="τ",ylabel="C(τ)",title="P = $(PP[j])",ylims=(-0.25,1))
 #     for i in 1:size(f0)[1]
@@ -359,3 +371,21 @@ end
 #     plot!(lags/length(lags)*2,zeros(length(lags)),color=:grey,linestyle=:dash,label="")
 #     savefig("Figures\\autocorrelation_P$(PP[j])")
 # end
+
+x = [el for el in 0:0.01:2pi]
+function autocorrelation(X)
+    L = length(X)
+    cor = zeros(L,L)
+    variance = Statistics.var(X)
+    for i in 1:L # circular shift of the vector X
+        X = circshift(X,1)
+        for j in 1:L # lags
+            cor[i,j] = X[1]*X[j]
+        end
+    end
+    return vec(mean(cor,dims=1)/variance)
+end
+c = autocorrelation(filter(!isnan,f0[1,1,3,:]))
+
+plot!(c)
+savefig("Figures\\testc")

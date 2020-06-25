@@ -163,31 +163,31 @@ f0c = abs.(f0 .- mean(f0,dims=4))
 # end
 
 ## Spatial Correlation of decision boundary f(y)
-# corr_Matrix = zeros(size(f0))
-# lags = 0:length(f0[1,1,1,:])-1
-# for i in 1:size(f0)[1] , j in 1:size(f0)[2] , m in 1:size(f0)[3]
-#     corr_Matrix[i,j,m,:] = StatsBase.autocor(f0[i,j,m,:],lags,demean=true) # "demean=true" centers the data
-# end
-# corr_Matrix
-# corr = mean(corr_Matrix,dims=3) ## pb de nan pour les deux premières valeurs de P
-#
-# for i in 1:size(f0)[1]
-#     plot(xlabel="τ",ylabel="C(τ)",title="Δ0 = $(gap[i])",ylims=(-0.25,1))
-#     for j in 3:size(f0)[2]
-#         plot!(lags/length(lags)*2,corr[i,j,1,:],label="P = $(PP[j])")
-#     end
-#     plot!(lags/length(lags)*2,zeros(length(lags)),color=:grey,linestyle=:dash,label="")
-#     savefig("Figures\\autocorrelation_gap$(gap[i])")
-# end
-#
-# for j in 3:size(f0)[2]
-#     plot(xlabel="τ",ylabel="C(τ)",title="P = $(PP[j])",ylims=(-0.25,1))
-#     for i in 1:size(f0)[1]
-#         plot!(lags/length(lags)*2,corr[i,j,1,:],label="Δ0 = $(gap[i])")
-#     end
-#     plot!(lags/length(lags)*2,zeros(length(lags)),color=:grey,linestyle=:dash,label="")
-#     savefig("Figures\\autocorrelation_P$(PP[j])")
-# end
+corr_Matrix = zeros(size(f0))
+lags = 0:length(f0[1,1,1,:])-1
+for i in 1:size(f0)[1] , j in 1:size(f0)[2] , m in 1:size(f0)[3]
+    corr_Matrix[i,j,m,:] = StatsBase.autocor(f0[i,j,m,:],lags,demean=true) # "demean=true" centers the data
+end
+corr_Matrix
+corr = mean(corr_Matrix,dims=3) ## pb de nan pour les deux premières valeurs de P
+
+for i in 1:size(f0)[1]
+    plot(xlabel="τ",ylabel="C(τ)",title="Δ0 = $(gap[i])",ylims=(-0.25,1))
+    for j in 3:size(f0)[2]
+        plot!(lags/length(lags)*2,corr[i,j,1,:],label="P = $(PP[j])")
+    end
+    plot!(lags/length(lags)*2,zeros(length(lags)),color=:grey,linestyle=:dash,label="")
+    savefig("Figures\\autocorrelation_gap$(gap[i]).pdf")
+end
+
+for j in 3:size(f0)[2]
+    plot(xlabel="τ",ylabel="C(τ)",title="P = $(PP[j])",ylims=(-0.25,1))
+    for i in 1:size(f0)[1]
+        plot!(lags/length(lags)*2,corr[i,j,1,:],label="Δ0 = $(gap[i])")
+    end
+    plot!(lags/length(lags)*2,zeros(length(lags)),color=:grey,linestyle=:dash,label="")
+    savefig("Figures\\autocorrelation_P$(PP[j]).pdf")
+end
 
 ## D'après ces figures, il se pourrait que le kernel isotrope sous-jacent soit : (reference = https://www.nr.no/directdownload/2437/Abrahamsen_-_A_Review_of_Gaussian_random_fields_and_correlation.pdf)
     # (1-ax)exp(-ax), sa FT est positive donc PDness OK
@@ -195,20 +195,27 @@ f0c = abs.(f0 .- mean(f0,dims=4))
     # un simple laplace (il y a peut etre des pb avec le fait que les données ne soient pas périodiques)
 # Essayons de tirer des realisations de chacun de ces kernels pour voir
 k(h) = sinc(h*10pi)
-# k(h) = 1exp(-h^2/2*40)
+function ke(h) return exp(-h^2 * pi)*cos(pi*h) end
 # # k(h) = (1-2h)*exp(-h/100)
 function Gram(X)
     K = 1E-5 .+ ones(length(X),length(X))
     for i=1:length(X) , j = i+1:length(X)
-        K[i,j] = k(abs(X[i]-X[j]))
+        K[i,j] = ke(2abs(X[i]-X[j]))
     end
     return Symmetric(K)
 end
-X = 0:0.005:1
+X = -1:0.005:1
 L = length(X)
-Z = rand(MvNormal(zeros(L),Gram(X)),5)
-plot(X,Z)
-savefig("Figures\\testZ")
+Z = rand(MvNormal(zeros(L),Gram(X)),3)
+p = plot(xlabel="x",ylabel="y",legend=:topright)
+plot!(range(-0.2,stop=0.2,length=100),fill(1,100),color=:grey,fill=(0,0.25,:grey),label="Gap at interface")
+plot!(range(-0.2,stop=0.2,length=100),fill(-1,100),color=:grey,fill=(0,0.25,:grey),label="")
+plot!(Z[:,1]/5,X,color=:black,label="")
+# plot!(Z[:,1]/5,X,color=1,label="")
+# plot!(Z[:,2]/5,X,color=2,label="")
+# plot!(Z[:,3]/5,X,color=3,label="")
+xlims!(-0.5,0.5)
+savefig("Figures\\Report\\realGP")
 
 ## Let's try to see if these results change when the datat is ~ Uniform on the unit sphere
 gap = 0.0
@@ -220,15 +227,16 @@ predTrain = clf.predict(GramTrain)
 # scatter(Xtrain[1,:],Xtrain[2,:],Xtrain[3,:],color=predTrain .+ 3,xlabel="x",ylabel="y",zlabel="f(x,y)",camera=c1)
 # savefig("Figures\\tests")
 
-a = 0.25 ## keep only points such that -a < x < a for efficiency
-Xtest = grid_2D_sphere(a,Int(1E5)) # testset almost uniform on the 2D sphere (Fibonacci sphere) # NB : runtime linear in number of test points
+a = 0.5 ## keep only points such that -a < x < a for efficiency
+Xtest = grid_2D_sphere(a,Int(1E6)) # testset almost uniform on the 2D sphere (Fibonacci sphere) # NB : runtime linear in number of test points
 GramTest = Kernel_Matrix(Xtrain,Xtest)
 predTest = clf.predict(GramTest)
-# scatter(Xtest[1,:],Xtest[2,:],Xtest[3,:],xlabel="x",ylabel="y",zlabel="z",label="",ms=3)
-scatter(Xtest[1,:],Xtest[2,:],Xtest[3,:],color=predTest .+ 3,xlabel="x",ylabel="y",zlabel="f(x,y)",label="",ms=1.5,camera=(0,40))
+# scatter(Xtest[1,:],Xtest[2,:],Xtest[3,:],xlabel="x",ylabel="y",zlabel="z",label="",ms=1.5)
+scatter(Xtest[1,:],Xtest[2,:],Xtest[3,:],color=predTest .+ 3,xlabel="x",ylabel="y",zlabel="f(x,y)",label="",ms=1.5,camera=(0,0))
 scatter!([NaN,NaN],[NaN,NaN],m=:o,color=2,label="Predicted -1")
 scatter!([NaN,NaN],[NaN,NaN],m=:o,color=4,label="Predicted +1")
-savefig("Figures\\Report\\prediction_sphere_zoom.pdf")
+savefig("Figures\\Report\\prediction_sphere_zoom")
+# savefig("Figures\\Report\\prediction_sphere_zoom.pdf")
 # @time @gif for i in 0:2:360
 #     scatter!(camera=(0,i))
 # end
@@ -244,12 +252,13 @@ c = autocor(filter(!isnan,f0),lags,demean=true)
 plot(c)
 savefig("Figures\\testc")
 
-# Accumulate stats in order to have meaningful histograms
-M = 100
+# Accumulate stats
+M = 1
 gap = [0.0,0.1,0.2,0.3,0.5]
-PP = Int.(round.(10.0 .^range(log10(30),stop=log10(400),length=10))) ## the larger P, the closer is the decision function f to the interface
+gap = [0.0]
+PP = Int.(round.(10.0 .^range(log10(50),stop=log10(500),length=8))) ## the larger P, the closer is the decision function f to the interface
 # Creation of the testing "grid" such that -a < x < a
-    a = 0.25 ; N = Int(1E5) ; Xtest = grid_2D_sphere(a,N) # Note : Expectation[length(Xtest)] = aN
+    a = 0.5 ; N = Int(1E5) ; Xtest = grid_2D_sphere(a,N) # Note : Expectation[length(Xtest)] = aN
 
 f0 = zeros(length(gap),length(PP),M,396) ## 396 is the length of the returned array of function extrapolate_root_sphere
 @time for i in eachindex(gap)
@@ -298,9 +307,9 @@ f0c = abs.(f0 .- mean(f0,dims=4))
 
 # plot(xlabel="P",ylabel="Maximum amplitude of f0")
 # for i in 1:length(gap)
-#     plot!(PP,mean(mean(abs.(f0),dims=4),dims=3)[i,:],ribbon = 0.25std(mean(abs.(f0),dims=4),dims=3)[i,:],label="Gap = $(gap[i])",axis=:log)
+#     plot!(PP,mean(maximum(abs.(f0),dims=4),dims=3)[i,:],ribbon = 0.25std(maximum(abs.(f0),dims=4),dims=3)[i,:],label="Gap = $(gap[i])",axis=:log)
 # end
-# plot!(PP, PP .^(-1/2),color=:black,ls=:dash,label="1/√P")
+# plot!(PP, 2PP .^(-1/2),color=:black,ls=:dash,label="1/√P")
 # savefig("Figures\\amplitude.pdf")
 ""
 # hP = Array{Any,2}(undef,length(gap),length(PP))
@@ -358,7 +367,7 @@ for i in 1:size(f0)[1]
 end
 plot()
 for k in 1:10
-    c = autocorrelation(filter(!isnan,f0[1,1,k,:]))
+    c = autocor(filter(!isnan,f0[1,1,k,:]))
 # x = (f0[1,1,2,:])
     plot!(c)
 end
@@ -371,21 +380,3 @@ savefig("Figures\\testt")
 #     plot!(lags/length(lags)*2,zeros(length(lags)),color=:grey,linestyle=:dash,label="")
 #     savefig("Figures\\autocorrelation_P$(PP[j])")
 # end
-
-x = [el for el in 0:0.01:2pi]
-function autocorrelation(X)
-    L = length(X)
-    cor = zeros(L,L)
-    variance = Statistics.var(X)
-    for i in 1:L # circular shift of the vector X
-        X = circshift(X,1)
-        for j in 1:L # lags
-            cor[i,j] = X[1]*X[j]
-        end
-    end
-    return vec(mean(cor,dims=1)/variance)
-end
-c = autocorrelation(filter(!isnan,f0[1,1,3,:]))
-
-plot!(c)
-savefig("Figures\\testc")

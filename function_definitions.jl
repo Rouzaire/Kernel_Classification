@@ -22,13 +22,12 @@ end
 @everywhere function generate_TrainSet(Ptrain::Int,d::Int,Δ0::Float64)
     # @assert isinteger(d) ; @assert d > 0 ; @assert Δ0 ≥ 0 # Δ0 = margin separating decision boundaries
 
-    M = Int(ceil(2*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
+    M = Int(ceil(3*Ptrain/(1-SpecialFunctions.erf(Δ0/2)))) # generate more data than necessary
     X = rand(MvNormal(zeros(d+1),I(d+1)),M)
     for m in 1:M
         X[:,m] = X[:,m]./norm(X[:,m]) ## normalizing it on the unit sphere
     end
     X = X[:,[Δ0/2 ≤ abs(X[1,i]) for i in 1:M]] # Keep only the points out-of-margin and hope that there is at least N of them
-    @assert length(X) ≥ Ptrain
     X = X[:,1:Ptrain]
 
     return X , generate_Y(X,Δ0)
@@ -266,8 +265,9 @@ end
 
 @everywhere function grid_2D_sphere(a,N=Int(1E6)) ## implements the Fibonacci (usual 2D) unit sphere restreigned -a < x < a   N = number of points
     indices = 1:N
+    seed = (1 + sqrt(5))/2
     theta = acos.(1 .- 2*indices/N)
-    phi = pi * (1 + sqrt(5)) * indices
+    phi = 2pi * seed * indices
     x, y, z = cos.(phi) .* sin.(theta), sin.(phi) .* sin.(theta), cos.(theta)
 
     Xtest = Array{Float64,2}(undef,3,N) # necessary format to be accepted by Kernel_Matrix(.,.)

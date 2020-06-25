@@ -4,7 +4,7 @@ pyplot() ; default(:palette,ColorSchemes.tab10.colors[1:10]) ; default(:box,true
 include("function_definitions.jl")
 
 ##
-dayy = "11" ; param = load("Data\\Laplace_Kernel\\Scan_gap\\parameters_"*dayy*".jld")
+dayy = "3" ; param = load("Data\\Laplace_Kernel\\parameters_"*dayy*".jld")
 PP = param["PP"]
 M  = param["M"]
 Δ  = param["Δ"]
@@ -24,18 +24,18 @@ delta_std_matrix                = zeros(length(PP),length(Δ),length(dimensions)
 if parallelized_over == "Δ"
     for i in eachindex(Δ)
         str = "Δ_"*string(Δ[i])*"_"*dayy
-        misclassification_error_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["error"]
-        alpha_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["alpha_mean_matrix"] ; alpha_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["alpha_std_matrix"]
-        rc_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["rc_mean_matrix"] ; rc_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["rc_std_matrix"]
-        delta_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["delta_mean_matrix"] ; delta_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["delta_std_matrix"]
+        misclassification_error_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["error"]
+        alpha_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["alpha_mean_matrix"] ; alpha_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["alpha_std_matrix"]
+        rc_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["rc_mean_matrix"] ; rc_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["rc_std_matrix"]
+        # delta_mean_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["delta_mean_matrix"] ; delta_std_matrix[:,i,:,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["delta_std_matrix"]
     end
 elseif parallelized_over == "d"
             for i in eachindex(dimensions)
         str = "D_"*string(dimensions[i])*"_"*dayy
-        misclassification_error_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["error"]
-        alpha_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["alpha_mean_matrix"] ; alpha_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["alpha_std_matrix"]
-        rc_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["rc_mean_matrix"] ; rc_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["rc_std_matrix"]
-        delta_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["delta_mean_matrix"] ; delta_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\Scan_gap\\"*str*".jld")["delta_std_matrix"]
+        misclassification_error_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["error"]
+        alpha_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["alpha_mean_matrix"] ; alpha_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["alpha_std_matrix"]
+        rc_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["rc_mean_matrix"] ; rc_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["rc_std_matrix"]
+        delta_mean_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["delta_mean_matrix"] ; delta_std_matrix[:,:,i,:] = load("Data\\Laplace_Kernel\\"*str*".jld")["delta_std_matrix"]
     end
 end
 error_avg       = mean(misclassification_error_matrix,dims=4)  ; error_std       = std(misclassification_error_matrix,dims=4)
@@ -46,7 +46,7 @@ delta_mean_avg  = mean(delta_mean_matrix,dims=4) ; delta_mean_std  = std(delta_m
 s = cut_zeros(error_avg)
 
 
-β = -(dimensions .- 1 .+ ξ)./(3dimensions .- 3 .+ ξ)
+β = -(2dimensions .- 2 .+ 2ξ)./(5dimensions .- 5 .+ 2ξ)
 pow_̄α = 2ξ./(3dimensions .- 3 .+ ξ)
 pow_rc = -2 ./(3dimensions .- 3 .+ ξ)
 
@@ -86,17 +86,18 @@ pow_rc = -2 ./(3dimensions .- 3 .+ ξ)
 # savefig("Figures\\0test_error_gap.pdf")
 
 ## Investigate the departure from powerlaw
-# factor = 0.1
-# for j in 1:length(dimensions)
-#     p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
-#     # plot!(PP,0.3*PP .^-0.75,line=:dash,axis=:log,color=:black,label="No Gap")
-#     for i in 1:length(Δ)
-#         plot!(PP[1:s[i,j]],smooth(error_avg[1:s[i,j],i,j,1]),ribbon=factor*error_std[1:s[i,j],i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
-#     end
-#     savefig("Figures\\Laplace_Kernel\\Gap\\gap_d"*string(dimensions[j])*".pdf")
-#     savefig("Figures\\Laplace_Kernel\\Gap\\gap_d"*string(dimensions[j]))
-# end
-
+factor = 0.3
+for j in 1:length(dimensions)
+    p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+    # plot!(PP,0.3*PP .^-0.75,line=:dash,axis=:log,color=:black,label="No Gap")
+    for i in 1:length(Δ)-1
+        plot!(PP[1:s[i,j]],smooth(error_avg[1:s[i,j],i,j,1]),ribbon=factor*error_std[1:s[i,j],i,j,1],axis=:log,color=i,label="Δ0 = $(Δ[i])")
+        plot!(PP[1:s[i,j]],0.15PP[1:s[i,j]] .^(-0.4255) .* erfc.(sqrt.(PP[1:s[i,j]]) *Δ[i]/2),ls=:dash,color=i,label="")
+    end
+    savefig("Figures\\Laplace_Kernel\\Gap\\testgap_d"*string(dimensions[j])*".pdf")
+    savefig("Figures\\Laplace_Kernel\\Gap\\testgap_d"*string(dimensions[j]))
+end
+1
 # factor = 0.1
 # for j in 1:length(dimensions)
 #     p = plot(box=true,legend=true,xlabel="P",ylabel="Test Error avg. on $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
@@ -145,16 +146,16 @@ pow_rc = -2 ./(3dimensions .- 3 .+ ξ)
 # end
 
 ## Investigation error as a function of the gap
-p = plot(legend=:topleft,xlabel="Δ0",ylabel="-log ϵ",title="Scaling of ϵ with the gap [P = 1000]")
-ind_max = minimum([findfirst(iszero,error_avg[i,:,j,1]) for j in 1:length(dimensions)]) - 1
-for j in 1:length(dimensions)
-    i=1
-    plot!(Δ[2:ind_max],(smooth(error_avg[i,2:ind_max,j,1])),ribbon=0*error_std[i,2:ind_max,j,1],yaxis=:log,color=j,label="d = $(dimensions[j])")
-    # savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
-end
-plot!(Δ[1:ind_max], 3 .+ 2.1exp.(13*Δ[1:ind_max]),yaxis=:log,color=:black,label="y = 3 + 2 exp(13 Δ)")
-xlims!(0,0.12)
-savefig("Figures\\relation_error_gap")
+# p = plot(legend=:topleft,xlabel="Δ0",ylabel="-log ϵ",title="Scaling of ϵ with the gap [P = 1000]")
+# ind_max = minimum([findfirst(iszero,error_avg[i,:,j,1]) for j in 1:length(dimensions)]) - 1
+# for j in 1:length(dimensions)
+#     i=1
+#     plot!(Δ[2:ind_max],(smooth(error_avg[i,2:ind_max,j,1])),ribbon=0*error_std[i,2:ind_max,j,1],yaxis=:log,color=j,label="d = $(dimensions[j])")
+#     # savefig("Figures\\Laplace_Kernel\\rc_d"*string(dimensions[j])*"_cube")
+# end
+# plot!(Δ[1:ind_max], 3 .+ 2.1exp.(13*Δ[1:ind_max]),yaxis=:log,color=:black,label="y = 3 + 2 exp(13 Δ)")
+# xlims!(0,0.12)
+# savefig("Figures\\relation_error_gap")
 
 ## Investigation relation Erorr SVband
 p = plot(legend=:topleft,xlabel="Δ0",ylabel="log(-log ϵ)",title="Relation between ϵ and Δ ")

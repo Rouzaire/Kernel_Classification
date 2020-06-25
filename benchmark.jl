@@ -2,9 +2,9 @@ cd("C:\\Users\\Ylann Rouzaire\\.julia\\environments\\ML_env")
 using Pkg; Pkg.activate("."); Pkg.instantiate();
 cd("D:\\Documents\\Ecole\\EPFL\\Internship_2019_ML\\Kernel Classification SVM")
 using Plots, SpecialFunctions, JLD, Dates,Distributed, LinearAlgebra, Distributions,ColorSchemes,PyCall
-pyplot() ; default(:palette,ColorSchemes.tab10.colors[1:10]); default(:box,true) ; default(:legend,:best) ; plot()
+pyplot() ; default(:palette,ColorSchemes.tab10.colors[1:10]); default(:box,true) ; default(:legend,:best) ; default(:grid,false) ; plot()
 SV = pyimport("sklearn.svm")
-np = pyimport("numpy")
+# np = pyimport("numpy")
 
 include("function_definitions.jl")
 
@@ -78,10 +78,10 @@ end # Ptrain
 
 
 ## Compute Delta
-PP = unique(Int.(round.(10.0 .^range(log10(100),stop=log10(1E3),length=50))))
-dimensions = [2] ; ξ=1; β = -(dimensions .- 1 .+ ξ)./(3dimensions .- 3 .+ ξ)
-M = 50
-Delta0 = [0.0,0.02,0.05,0.1]
+PP = unique(Int.(round.(10.0 .^range(log10(50),stop=log10(1E4),length=10))))
+dimensions = [10] ; ξ=1; β = -2(dimensions .- 1 .+ ξ)./(5dimensions .- 5 .+ 2ξ)
+M = 30
+Delta0 = [0.0,0.05,0.1,0.5]
 delta_max_matrix = zeros(length(PP),length(Delta0),length(dimensions),M)
 delta_mean_matrix = zeros(length(PP),length(Delta0),length(dimensions),M)
 @time for i in eachindex(PP)
@@ -94,7 +94,7 @@ delta_mean_matrix = zeros(length(PP),length(Delta0),length(dimensions),M)
             for m in 1:M
                 Xtrain,Ytrain = generate_TrainSet(Ptrain,d,Δ0)
                 clf = SV.SVC(C=1E10,kernel="precomputed",cache_size=1000) # allocated cache (in MB)
-                GramTrain = Kernel_Matrix(Xtrain,Xtrain)
+                GramTrain = Kernel_Matrix(Xtrain)
                 clf.fit(GramTrain,Ytrain)
                 tmp = abs.(Xtrain[:,clf.support_ .+ 1][1,:])
                 delta_max_matrix[i,j,k,m] = maximum(tmp)
@@ -108,14 +108,23 @@ delta_max_matrix_std = std(delta_max_matrix,dims=4)
 delta_mean_matrix_mean = mean(delta_mean_matrix,dims=4)
 delta_mean_matrix_std = std(delta_mean_matrix,dims=4)
 for j in eachindex(dimensions)
-    p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="Δ avg. over $M realisations",title="Departure from powerlaw regime [d=$(dimensions[j])]")
+    p = plot(box=true,legend=:bottomleft,xlabel="P",ylabel="Δ avg. over $M realisations")
     for i in eachindex(Delta0)
-        plot!(PP,smooth(delta_max_matrix_mean[:,i,j,1]).-Delta0[i],ribbon=0.25*smooth(delta_max_matrix_std[:,i,j,1]),axis=:log,color=i,label="Δ0 = $(Delta0[i])")
+        plot!(PP,smooth(delta_mean_matrix_mean[:,i,j,1]).-Delta0[i]/2,ribbon=smooth(delta_mean_matrix_std[:,i,j,1]),axis=:log,color=i,label="Δ0 = $(Delta0[i])")
+        if Delta0[i] > 0 plot!(PP,fill(Delta0[i],length(PP)),color=i,ls=:dash,axis=:log,label="") end
     end
-    plot!(PP,3*PP .^ β[1],axis=:log,color=:black,label="Slope β")
+    plot!(PP,0.9*PP .^ -0.5,axis=:log,color=:black,label="Slope 1/2")
     # display(p)
-    savefig("Figures\\Laplace_Kernel\\testdelta")
+    savefig("Figures\\Report\\scalingdelta10D.pdf")
 end
+JLD.save("Data\\Laplace_Kernel\\delta10D.jld","delta_mean_matrix_mean",delta_mean_matrix_mean,"delta_mean_matrix_std",delta_mean_matrix_std,"PP",PP,"Delta0",Delta0,"dimensions", dimensions, "M",M)
+# data = JLD.load("Data\\Laplace_Kernel\\delta10D.jld")
+# PP = data["PP"]
+# delta_mean_matrix_mean = data["delta_mean_matrix_mean"]
+# delta_mean_matrix_std = data["delta_mean_matrix_std"]
+# dimensions = data["dimensions"]
+# Delta0 = data["Delta0"]
+
 
 ## where are the SV ?
 d = 2
